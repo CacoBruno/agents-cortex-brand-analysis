@@ -173,3 +173,48 @@ As duas rotas retornam:
 
 O LLM não monta filtros Cortex diretamente; ele deverá produzir um desses requests
 tipados e o workflow determinístico executa a consulta.
+
+
+## RAG seguro e reproduzível
+
+O RAG antigo foi substituído por um índice que não usa pickle nem
+`allow_dangerous_deserialization=True`.
+
+### Construção do índice
+
+```text
+POST /v1/rag/build
+```
+
+Recebe documentos com:
+- `document_id`;
+- `source`;
+- `title`;
+- `text`;
+- `version`;
+- `updated_at`.
+
+O workflow quebra os documentos em chunks, gera embeddings e persiste o índice em:
+
+```text
+.data/knowledge/product.jsonl
+```
+
+Cada linha contém metadados do chunk + vetor numérico em JSON. O índice pode ser
+apagado e reconstruído a partir dos documentos-fonte.
+
+### Consulta
+
+```text
+POST /v1/rag/query
+```
+
+A resposta inclui:
+- resposta textual;
+- chunks recuperados;
+- `document_id`;
+- `source`;
+- score de similaridade.
+
+Se a base ainda não tiver sido construída, a API informa isso explicitamente em vez
+de tentar carregar artefatos serializados inseguros.
