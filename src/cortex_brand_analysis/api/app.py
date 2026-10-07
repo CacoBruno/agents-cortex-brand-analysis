@@ -6,6 +6,7 @@ import logging
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 
 from cortex_brand_analysis.config import get_settings
+from cortex_brand_analysis.domain.analytics import AnalyticsRequest, AnalyticsResult
 from cortex_brand_analysis.domain.classification import (
     ClassificationApplyRequest,
     ClassificationApplyResult,
@@ -35,6 +36,7 @@ from cortex_brand_analysis.services.knowledge_index import JsonlKnowledgeIndex
 from cortex_brand_analysis.services.news_enrichment import OpenAINewsEnricher
 from cortex_brand_analysis.services.openai_rag import OpenAIRagService
 from cortex_brand_analysis.services.s3_storage import S3NewsStorage
+from cortex_brand_analysis.workflows.analytics import AnalyticsWorkflow
 from cortex_brand_analysis.workflows.classification_review import ClassificationReviewWorkflow
 from cortex_brand_analysis.workflows.exports import ExportWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
@@ -69,6 +71,10 @@ def get_news_workflow() -> NewsCheckWorkflow:
 
 def get_classification_workflow() -> ClassificationReviewWorkflow:
     return ClassificationReviewWorkflow(get_gateway())
+
+
+def get_analytics_workflow() -> AnalyticsWorkflow:
+    return AnalyticsWorkflow()
 
 
 def get_export_workflow() -> ExportWorkflow:
@@ -252,3 +258,15 @@ def query_rag(
     workflow: KnowledgeRagWorkflow = Depends(get_rag_workflow),
 ) -> RagAnswer:
     return workflow.query(request)
+
+
+@app.post(
+    "/v1/analytics/run",
+    response_model=AnalyticsResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def run_analytics(
+    request: AnalyticsRequest,
+    workflow: AnalyticsWorkflow = Depends(get_analytics_workflow),
+) -> AnalyticsResult:
+    return workflow.run(request)
