@@ -18,7 +18,7 @@ class ClassificationSelector(BaseModel):
     product: str | None = None
 
     @model_validator(mode="after")
-    def validate_selector(self) -> "ClassificationSelector":
+    def validate_selector(self) -> ClassificationSelector:
         if self.media_analysis_id:
             return self
 
@@ -46,7 +46,7 @@ class ClassificationPatch(BaseModel):
     action_type: str | None = None
 
     @model_validator(mode="after")
-    def require_change(self) -> "ClassificationPatch":
+    def require_change(self) -> ClassificationPatch:
         if not self.model_dump(exclude_none=True):
             raise ValueError("at least one classification field must be changed")
         return self
