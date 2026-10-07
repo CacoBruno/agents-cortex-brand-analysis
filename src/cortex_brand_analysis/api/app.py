@@ -13,9 +13,18 @@ from cortex_brand_analysis.domain.classification import (
     ClassificationReviewRequest,
 )
 from cortex_brand_analysis.domain.models import HealthResponse, NewsCheckRequest, NewsCheckResult
+from cortex_brand_analysis.domain.news_ingestion import (
+    NewsIngestionApplyRequest,
+    NewsIngestionApplyResult,
+    NewsIngestionPreview,
+    NewsIngestionRequest,
+)
 from cortex_brand_analysis.services.cortex_http import CortexError, CortexHTTPGateway
+from cortex_brand_analysis.services.news_enrichment import OpenAINewsEnricher
+from cortex_brand_analysis.services.s3_storage import S3NewsStorage
 from cortex_brand_analysis.workflows.classification_review import ClassificationReviewWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
+from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +54,15 @@ def get_news_workflow() -> NewsCheckWorkflow:
 
 def get_classification_workflow() -> ClassificationReviewWorkflow:
     return ClassificationReviewWorkflow(get_gateway())
+
+
+def get_news_ingestion_workflow() -> NewsIngestionWorkflow:
+    settings = get_settings()
+    return NewsIngestionWorkflow(
+        get_gateway(),
+        OpenAINewsEnricher(settings),
+        S3NewsStorage(settings),
+    )
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -103,6 +121,44 @@ def apply_classification_review(
         return workflow.apply(request)
     except CortexError as exc:
         logger.exception("Cortex classification apply failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Cortex upstream operation failed",
+        ) from exc
+
+
+@app.post(
+    "/v1/news/ingestion/preview",
+    response_model=NewsIngestionPreview,
+    dependencies=[Depends(verify_api_key)],
+)
+def preview_news_ingestion(
+    request: NewsIngestionRequest,
+    workflow: NewsIngestionWorkflow = Depends(get_news_ingestion_workflow),
+) -> NewsIngestionPreview:
+    try:
+        return workflow.preview(request)
+    except CortexError as exc:
+        logger.exception("Cortex news ingestion preview failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Cortex upstream operation failed",
+        ) from exc
+
+
+@app.post(
+    "/v1/news/ingestion/apply",
+    response_model=NewsIngestionApplyResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def apply_news_ingestion(
+    request: NewsIngestionApplyRequest,
+    workflow: NewsIngestionWorkflow = Depends(get_news_ingestion_workflow),
+) -> NewsIngestionApplyResult:
+    try:
+        return workflow.apply(request)
+    except CortexError as exc:
+        logger.exception("Cortex news ingestion apply failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Cortex upstream operation failed",
