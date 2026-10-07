@@ -13,6 +13,10 @@ from cortex_brand_analysis.domain.classification import (
     ClassificationRecord,
     ClassificationSelector,
 )
+from cortex_brand_analysis.domain.exports import (
+    MediaAnalysisExportRequest,
+    PublicationExportRequest,
+)
 from cortex_brand_analysis.domain.models import PublicationMatch
 
 CHECK_FIELDS = [
@@ -57,6 +61,23 @@ REVISION_FIELDS = [
 ]
 
 ANALISE_MIDIA_CUBE_ID = "01f6057b711545708703eec79e5426fd"
+
+PUBLICATION_EXPORT_FIELDS = [
+    "ID Cortex", "Título", "Data", "Conteúdo", "Mídia", "Fonte",
+    "Alcance orgânico", "Tier", "Status classificação", "Link",
+    "Link original da publicação", "Enviar no clipping?", "Empresas citadas",
+    "Produtos citados", "Porta Vozes", "Estado (final)",
+]
+
+MEDIA_ANALYSIS_EXPORT_FIELDS = [
+    "Chave Análise de Mídia Hash", "Título", "Data", "Conteúdo", "Mídia",
+    "Fonte", "Alcance orgânico", "Alcance total", "Tier", "Empresa analisada",
+    "Produto analisado", "Status classificação", "Link",
+    "Link original da publicação", "Sentimento", "Nível de Protagonismo",
+    "Macro assunto", "Mensagem-chave", "Nível de Protagonismo final", "Tópicos",
+    "Assunto específico", "Ação", "Tipo da ação", "Jornalista", "Temas",
+    "Origem da menção", "Tipos de impactos",
+]
 
 
 class CortexError(RuntimeError):
@@ -416,6 +437,78 @@ class CortexHTTPGateway:
         )
         start.raise_for_status()
         return [execution_id]
+
+    def export_publications(
+        self,
+        request: PublicationExportRequest,
+    ) -> list[dict]:
+        filters = _build_filters([
+            ("Empresas citadas", request.companies),
+            ("Produtos citados", request.products),
+            ("Estado (final)", request.states),
+            ("Mídia", request.media),
+            ("Tier", request.tiers),
+        ])
+        filters.append({
+            "name": "Data",
+            "values": (request.start_date.isoformat(), request.end_date.isoformat()),
+        })
+        frame = self._download_cube(
+            self.client_name(request.platform_url),
+            "Publicações",
+            PUBLICATION_EXPORT_FIELDS,
+            filters,
+        )
+        return _records(frame)
+
+    def export_media_analysis(
+        self,
+        request: MediaAnalysisExportRequest,
+    ) -> list[dict]:
+        filters = _build_filters([
+            ("Empresa analisada", request.companies),
+            ("Produto analisado", request.products),
+            ("Estado (final)", request.states),
+            ("Mídia", request.media),
+            ("Tier", request.tiers),
+            ("Tipos de impactos", request.impact_types),
+            ("Sentimento", request.sentiments),
+            ("Nível de Protagonismo", request.protagonism),
+            ("Macro assunto", request.macro_subjects),
+            ("Tópicos", request.topics),
+            ("Assunto específico", request.specific_subjects),
+            ("Ação", request.communication_actions),
+            ("Origem da menção", request.mention_origins),
+            ("Jornalista", request.journalists),
+            ("Temas", request.themes),
+            ("Status classificação", request.classification_status),
+        ])
+        filters.append({
+            "name": "Data",
+            "values": (request.start_date.isoformat(), request.end_date.isoformat()),
+        })
+        frame = self._download_cube(
+            self.client_name(request.platform_url),
+            "Análise de Mídia",
+            MEDIA_ANALYSIS_EXPORT_FIELDS,
+            filters,
+        )
+        return _records(frame)
+
+
+def _build_filters(items: list[tuple[str, list[str]]]) -> list[dict]:
+    return [
+        {"name": name, "exact_match": False, "values": values}
+        for name, values in items
+        if values
+    ]
+
+
+def _records(frame: pd.DataFrame) -> list[dict]:
+    return [
+        {key: _clean_value(value) for key, value in row.items()}
+        for row in frame.to_dict(orient="records")
+    ]
 
 
 def _as_optional_str(value: object) -> str | None:
