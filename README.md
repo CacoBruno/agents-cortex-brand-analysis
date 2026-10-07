@@ -253,3 +253,47 @@ O executor não possui acesso a:
 
 A camada de LLM futura deverá apenas converter linguagem natural em `AnalyticsRequest`.
 O cálculo continuará sendo executado pelo workflow determinístico.
+
+
+## Audit trail e run IDs
+
+Todas as requisições HTTP recebem um identificador único no header:
+
+```text
+X-Run-ID: <uuid>
+```
+
+Cada execução é persistida em:
+
+```text
+.data/audit/runs.jsonl
+```
+
+O registro contém:
+- `run_id`;
+- operação HTTP;
+- `started_at` e `finished_at`;
+- duração em milissegundos;
+- status (`success` / `error`);
+- indicador `writes_external_state`;
+- resumo seguro do input;
+- resumo do resultado;
+- tipo e mensagem de erro quando aplicável.
+
+Por segurança, o middleware não persiste o corpo completo das requisições nem
+credenciais. O resumo registra apenas metadados como método, rota, nomes de query
+parameters e tamanho do conteúdo.
+
+As operações atualmente marcadas como escrita externa são:
+- `POST /v1/news/ingestion/apply`;
+- `POST /v1/classifications/review/apply`;
+- `POST /v1/rag/build`.
+
+### Consultar execuções
+
+```text
+GET /v1/audit/runs?limit=100
+```
+
+A rota é protegida pela mesma API key e retorna primeiro as execuções mais recentes.
+O limite máximo é 500 registros.
