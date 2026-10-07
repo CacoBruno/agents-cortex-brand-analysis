@@ -24,13 +24,22 @@ from cortex_brand_analysis.domain.news_ingestion import (
     NewsIngestionPreview,
     NewsIngestionRequest,
 )
+from cortex_brand_analysis.domain.rag import (
+    KnowledgeBuildResult,
+    KnowledgeDocument,
+    RagAnswer,
+    RagQueryRequest,
+)
 from cortex_brand_analysis.services.cortex_http import CortexError, CortexHTTPGateway
+from cortex_brand_analysis.services.knowledge_index import JsonlKnowledgeIndex
 from cortex_brand_analysis.services.news_enrichment import OpenAINewsEnricher
+from cortex_brand_analysis.services.openai_rag import OpenAIRagService
 from cortex_brand_analysis.services.s3_storage import S3NewsStorage
 from cortex_brand_analysis.workflows.classification_review import ClassificationReviewWorkflow
 from cortex_brand_analysis.workflows.exports import ExportWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
 from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
+from cortex_brand_analysis.workflows.rag import KnowledgeRagWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +73,14 @@ def get_classification_workflow() -> ClassificationReviewWorkflow:
 
 def get_export_workflow() -> ExportWorkflow:
     return ExportWorkflow(get_gateway())
+
+
+def get_rag_workflow() -> KnowledgeRagWorkflow:
+    settings = get_settings()
+    return KnowledgeRagWorkflow(
+        JsonlKnowledgeIndex(".data/knowledge/product.jsonl"),
+        OpenAIRagService(settings),
+    )
 
 
 def get_news_ingestion_workflow() -> NewsIngestionWorkflow:
@@ -211,3 +228,27 @@ def export_media_analysis(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Cortex upstream operation failed",
         ) from exc
+
+
+@app.post(
+    "/v1/rag/build",
+    response_model=KnowledgeBuildResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def build_rag_index(
+    documents: list[KnowledgeDocument],
+    workflow: KnowledgeRagWorkflow = Depends(get_rag_workflow),
+) -> KnowledgeBuildResult:
+    return workflow.build(documents)
+
+
+@app.post(
+    "/v1/rag/query",
+    response_model=RagAnswer,
+    dependencies=[Depends(verify_api_key)],
+)
+def query_rag(
+    request: RagQueryRequest,
+    workflow: KnowledgeRagWorkflow = Depends(get_rag_workflow),
+) -> RagAnswer:
+    return workflow.query(request)
