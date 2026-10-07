@@ -6,6 +6,10 @@ from cortex_brand_analysis.domain.classification import (
     ClassificationRecord,
     ClassificationSelector,
 )
+from cortex_brand_analysis.domain.exports import (
+    MediaAnalysisExportRequest,
+    PublicationExportRequest,
+)
 from cortex_brand_analysis.domain.models import PublicationMatch
 
 
@@ -32,3 +36,13 @@ class CortexGateway(Protocol):
         platform_url: str,
         rows: list[dict],
     ) -> list[str]: ...
+
+    def export_publications(
+        self,
+        request: PublicationExportRequest,
+    ) -> list[dict]: ...
+
+    def export_media_analysis(
+        self,
+        request: MediaAnalysisExportRequest,
+    ) -> list[dict]: ...
