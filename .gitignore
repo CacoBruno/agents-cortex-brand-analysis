@@ -12,3 +12,5 @@ build/
 *.egg-info/
 .files/
 .DS_Store
+
+.data/
