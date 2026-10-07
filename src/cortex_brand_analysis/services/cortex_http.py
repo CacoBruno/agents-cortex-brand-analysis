@@ -400,7 +400,13 @@ class CortexHTTPGateway:
                 "fileType": "CSV",
                 "encode": "UTF-8",
             },
-            files={"file": ("classification-review.tsv", csv_buffer.getvalue(), "text/tab-separated-values")},
+            files={
+                "file": (
+                    "classification-review.tsv",
+                    csv_buffer.getvalue(),
+                    "text/tab-separated-values",
+                )
+            },
         )
         upload.raise_for_status()
 
