@@ -218,3 +218,38 @@ A resposta inclui:
 
 Se a base ainda não tiver sido construída, a API informa isso explicitamente em vez
 de tentar carregar artefatos serializados inseguros.
+
+
+## Analytics seguro
+
+O agente Pandas antigo foi substituído por um executor com operações allow-listed.
+
+```text
+POST /v1/analytics/run
+```
+
+Operações permitidas:
+- `describe`;
+- `value_counts`;
+- `groupby`;
+- `correlation`;
+- `timeseries`.
+
+Também são permitidos filtros explícitos com operadores:
+- `eq`;
+- `ne`;
+- `in`;
+- `contains`;
+- `gte`;
+- `lte`.
+
+O executor não possui acesso a:
+- `eval` / `exec`;
+- Python REPL;
+- filesystem;
+- shell;
+- rede;
+- requests arbitrários.
+
+A camada de LLM futura deverá apenas converter linguagem natural em `AnalyticsRequest`.
+O cálculo continuará sendo executado pelo workflow determinístico.
