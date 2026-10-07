@@ -9,6 +9,10 @@ import httpx
 import pandas as pd
 
 from cortex_brand_analysis.config import Settings
+from cortex_brand_analysis.domain.classification import (
+    ClassificationRecord,
+    ClassificationSelector,
+)
 from cortex_brand_analysis.domain.models import PublicationMatch
 
 CHECK_FIELDS = [
@@ -31,6 +35,29 @@ CHECK_FIELDS_PR_DATA = [
     "nome_fornecedor",
 ]
 
+REVISION_FIELDS = [
+    "Chave Análise de Mídia Hash",
+    "Título",
+    "Fonte",
+    "Link original da publicação",
+    "Link",
+    "Empresa analisada",
+    "Produto analisado",
+    "Alcance total",
+    "Tier",
+    "Sentimento",
+    "Nível de Protagonismo",
+    "Tópicos",
+    "Assunto específico",
+    "Ação",
+    "Origem da menção",
+    "Jornalista",
+    "Temas",
+    "Tipo da ação",
+]
+
+ANALISE_MIDIA_CUBE_ID = "01f6057b711545708703eec79e5426fd"
+
 
 class CortexError(RuntimeError):
     pass
@@ -41,10 +68,7 @@ class CortexAuthenticationError(CortexError):
 
 
 class CortexHTTPGateway:
-    """Adapter for Cortex cube read operations.
-
-    Network details live here so workflows remain deterministic and testable.
-    """
+    """Adapter for Cortex cube read/write operations."""
 
     def __init__(self, settings: Settings, client: httpx.Client | None = None) -> None:
         if not settings.platform_login or not settings.platform_password:
@@ -83,6 +107,22 @@ class CortexHTTPGateway:
             }
         except KeyError as exc:
             raise CortexAuthenticationError("Unexpected authentication response") from exc
+
+    def _bearer_headers(self, client_name: str) -> dict[str, str]:
+        response = self.client.post(
+            f"https://{client_name}.cortex-intelligence.com/"
+            "service/integration-authorization-service.login",
+            json={
+                "login": self.settings.platform_login,
+                "password": self.settings.platform_password,
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+        key = payload.get("key")
+        if not key:
+            raise CortexAuthenticationError("Missing bearer token in authentication response")
+        return {"Authorization": f"Bearer {key}"}
 
     @staticmethod
     def _filter_payload(filters: list[dict]) -> str:
@@ -211,8 +251,176 @@ class CortexHTTPGateway:
             frame = frame[frame["cliente"].astype(str) == client]
         return frame.drop_duplicates().to_dict(orient="records")
 
+    def find_classifications(
+        self,
+        platform_url: str,
+        selectors: list[ClassificationSelector],
+    ) -> list[ClassificationRecord]:
+        client_name = self.client_name(platform_url)
+        frames: list[pd.DataFrame] = []
+
+        for selector in selectors:
+            if selector.media_analysis_id:
+                filters = [{
+                    "name": "Chave Análise de Mídia Hash",
+                    "exact_match": False,
+                    "values": [selector.media_analysis_id],
+                }]
+            else:
+                filters = []
+                if selector.original_url:
+                    filters.append({
+                        "name": "Link original da publicação",
+                        "exact_match": False,
+                        "values": [selector.original_url],
+                    })
+                elif selector.clipping_url:
+                    filters.append({
+                        "name": "Link",
+                        "exact_match": False,
+                        "values": [selector.clipping_url],
+                    })
+                elif selector.title:
+                    filters.append({
+                        "name": "Título",
+                        "exact_match": False,
+                        "values": [selector.title],
+                    })
+
+                if selector.company:
+                    filters.append({
+                        "name": "Empresa analisada",
+                        "exact_match": False,
+                        "values": [selector.company],
+                    })
+                if selector.product:
+                    filters.append({
+                        "name": "Produto analisado",
+                        "exact_match": False,
+                        "values": [selector.product],
+                    })
+
+            if filters:
+                frames.append(
+                    self._download_cube(
+                        client_name,
+                        "Análise de Mídia",
+                        REVISION_FIELDS,
+                        filters,
+                    )
+                )
+
+        if not frames:
+            return []
+
+        data = (
+            pd.concat(frames, ignore_index=True)
+            .drop_duplicates(subset=["Chave Análise de Mídia Hash"])
+        )
+
+        value_fields = [
+            "Alcance total",
+            "Tier",
+            "Sentimento",
+            "Nível de Protagonismo",
+            "Tópicos",
+            "Assunto específico",
+            "Ação",
+            "Origem da menção",
+            "Jornalista",
+            "Temas",
+            "Tipo da ação",
+        ]
+
+        records: list[ClassificationRecord] = []
+        for row in data.to_dict(orient="records"):
+            media_id = _as_optional_str(row.get("Chave Análise de Mídia Hash"))
+            if not media_id:
+                continue
+            records.append(
+                ClassificationRecord(
+                    media_analysis_id=media_id,
+                    title=_as_optional_str(row.get("Título")),
+                    source=_as_optional_str(row.get("Fonte")),
+                    original_url=_as_optional_str(row.get("Link original da publicação")),
+                    clipping_url=_as_optional_str(row.get("Link")),
+                    company=_as_optional_str(row.get("Empresa analisada")),
+                    product=_as_optional_str(row.get("Produto analisado")),
+                    values={field: _clean_value(row.get(field)) for field in value_fields},
+                )
+            )
+        return records
+
+    def upload_classification_changes(
+        self,
+        platform_url: str,
+        rows: list[dict],
+    ) -> list[str]:
+        if not rows:
+            return []
+
+        client_name = self.client_name(platform_url)
+        headers = self._bearer_headers(client_name)
+        dataframe = pd.DataFrame(rows)
+        csv_buffer = io.StringIO()
+        dataframe.to_csv(csv_buffer, index=False, sep="\t", quotechar='"')
+        csv_buffer.seek(0)
+
+        base_url = "https://api.cortex-intelligence.com"
+        content = {
+            "destinationId": ANALISE_MIDIA_CUBE_ID,
+            "fileProcessingTimeout": 3600,
+            "executionTimeout": 3600,
+        }
+
+        datainput = self.client.post(
+            f"{base_url}/datainput",
+            headers=headers,
+            json=content,
+        )
+        datainput.raise_for_status()
+        data_input_id = datainput.json()["id"]
+
+        execution = self.client.post(
+            f"{base_url}/datainput/{data_input_id}/execution",
+            headers=headers,
+            json=content,
+        )
+        execution.raise_for_status()
+        execution_id = str(execution.json()["executionId"])
+
+        upload = self.client.post(
+            f"{base_url}/execution/{execution_id}/file",
+            headers=headers,
+            data={
+                "charset": "UTF-8",
+                "quote": '"',
+                "escape": "\\",
+                "delimiter": "\t",
+                "fileType": "CSV",
+                "encode": "UTF-8",
+            },
+            files={"file": ("classification-review.tsv", csv_buffer.getvalue(), "text/tab-separated-values")},
+        )
+        upload.raise_for_status()
+
+        start = self.client.put(
+            f"{base_url}/execution/{execution_id}/start",
+            headers=headers,
+        )
+        start.raise_for_status()
+        return [execution_id]
+
 
 def _as_optional_str(value: object) -> str | None:
     if value is None or pd.isna(value):
         return None
     return str(value)
+
+
+def _clean_value(value: object) -> object | None:
+    if value is None or pd.isna(value):
+        return None
+    if hasattr(value, "item"):
+        return value.item()
+    return value
