@@ -96,3 +96,41 @@ Exemplo:
 4. RAG de produto com fontes e build reproduzível;
 5. analytics agent seguro;
 6. audit trail, idempotência e persistência de runs.
+
+
+## Ingestão de notícias
+
+A ingestão nova separa enriquecimento e escrita.
+
+### Preview
+
+```text
+POST /v1/news/ingestion/preview
+```
+
+O workflow:
+1. checa Publicações;
+2. checa PR Data;
+3. enriquece apenas URLs realmente ausentes;
+4. gera `idempotency_key` determinística por cliente + URL;
+5. retorna o payload sem gravar no Data Lake.
+
+### Apply
+
+```text
+POST /v1/news/ingestion/apply
+```
+
+Requer `confirm: true`. Cada item é salvo no S3 usando:
+
+```text
+pr/cortex-staging/oraculo/<idempotency_key>.json
+```
+
+Como a chave é determinística, repetir a mesma operação não cria um novo objeto com outra identidade.
+
+Para habilitar o enriquecimento com OpenAI:
+
+```bash
+pip install -e ".[ai,dev]"
+```
