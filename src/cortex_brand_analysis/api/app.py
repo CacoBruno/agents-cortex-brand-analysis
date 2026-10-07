@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import hmac
 import logging
+import time
+import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 
 from cortex_brand_analysis.config import get_settings
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest, AnalyticsResult
+from cortex_brand_analysis.domain.audit import AuditRun, AuditRunList
 from cortex_brand_analysis.domain.classification import (
     ClassificationApplyRequest,
     ClassificationApplyResult,
@@ -31,6 +36,7 @@ from cortex_brand_analysis.domain.rag import (
     RagAnswer,
     RagQueryRequest,
 )
+from cortex_brand_analysis.services.audit_store import JsonlAuditStore
 from cortex_brand_analysis.services.cortex_http import CortexError, CortexHTTPGateway
 from cortex_brand_analysis.services.knowledge_index import JsonlKnowledgeIndex
 from cortex_brand_analysis.services.news_enrichment import OpenAINewsEnricher
@@ -44,12 +50,76 @@ from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
 from cortex_brand_analysis.workflows.rag import KnowledgeRagWorkflow
 
 logger = logging.getLogger(__name__)
+audit_store = JsonlAuditStore(".data/audit/runs.jsonl")
+
+WRITE_PATHS = {
+    "/v1/news/ingestion/apply",
+    "/v1/classifications/review/apply",
+    "/v1/rag/build",
+}
 
 app = FastAPI(
     title="Cortex Brand Analysis",
     version="0.1.0",
     description="Auditable workflows and agents for Cortex brand-analysis operations.",
 )
+
+
+@app.middleware("http")
+async def audit_requests(request: Request, call_next):
+    run_id = str(uuid.uuid4())
+    started_at = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    started_perf = time.perf_counter()
+    operation = f"{request.method} {request.url.path}"
+    writes_external_state = request.url.path in WRITE_PATHS
+
+    input_summary = {
+        "method": request.method,
+        "path": request.url.path,
+        "query_keys": sorted(request.query_params.keys()),
+        "content_length": request.headers.get("content-length"),
+    }
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        finished_at = datetime.now(ZoneInfo("America/Sao_Paulo"))
+        audit_store.append(
+            AuditRun(
+                run_id=run_id,
+                operation=operation,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=int((time.perf_counter() - started_perf) * 1000),
+                status="error",
+                writes_external_state=writes_external_state,
+                input_summary=input_summary,
+                error_type=type(exc).__name__,
+                error_message=str(exc)[:1000],
+            )
+        )
+        raise
+
+    response.headers["X-Run-ID"] = run_id
+    finished_at = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    audit_store.append(
+        AuditRun(
+            run_id=run_id,
+            operation=operation,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_ms=int((time.perf_counter() - started_perf) * 1000),
+            status="success" if response.status_code < 400 else "error",
+            writes_external_state=writes_external_state,
+            input_summary=input_summary,
+            result_summary={"http_status": response.status_code},
+            error_type=None if response.status_code < 400 else "HTTPError",
+            error_message=None
+            if response.status_code < 400
+            else f"request completed with HTTP {response.status_code}",
+        )
+    )
+    return response
 
 
 def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> None:
@@ -270,3 +340,13 @@ def run_analytics(
     workflow: AnalyticsWorkflow = Depends(get_analytics_workflow),
 ) -> AnalyticsResult:
     return workflow.run(request)
+
+
+@app.get(
+    "/v1/audit/runs",
+    response_model=AuditRunList,
+    dependencies=[Depends(verify_api_key)],
+)
+def list_audit_runs(limit: int = 100) -> AuditRunList:
+    bounded_limit = max(1, min(limit, 500))
+    return AuditRunList(runs=audit_store.list_runs(limit=bounded_limit))
