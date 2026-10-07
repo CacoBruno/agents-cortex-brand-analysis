@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from cortex_brand_analysis.domain.classification import (
+    ClassificationRecord,
+    ClassificationSelector,
+)
 from cortex_brand_analysis.domain.models import PublicationMatch
 
 
@@ -16,3 +20,15 @@ class CortexGateway(Protocol):
     ) -> list[PublicationMatch]: ...
 
     def check_pr_data(self, original_urls: list[str], client: str) -> list[dict]: ...
+
+    def find_classifications(
+        self,
+        platform_url: str,
+        selectors: list[ClassificationSelector],
+    ) -> list[ClassificationRecord]: ...
+
+    def upload_classification_changes(
+        self,
+        platform_url: str,
+        rows: list[dict],
+    ) -> list[str]: ...
