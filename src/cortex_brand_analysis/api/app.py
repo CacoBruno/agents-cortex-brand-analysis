@@ -12,6 +12,11 @@ from cortex_brand_analysis.domain.classification import (
     ClassificationReviewPreview,
     ClassificationReviewRequest,
 )
+from cortex_brand_analysis.domain.exports import (
+    ExportResult,
+    MediaAnalysisExportRequest,
+    PublicationExportRequest,
+)
 from cortex_brand_analysis.domain.models import HealthResponse, NewsCheckRequest, NewsCheckResult
 from cortex_brand_analysis.domain.news_ingestion import (
     NewsIngestionApplyRequest,
@@ -23,6 +28,7 @@ from cortex_brand_analysis.services.cortex_http import CortexError, CortexHTTPGa
 from cortex_brand_analysis.services.news_enrichment import OpenAINewsEnricher
 from cortex_brand_analysis.services.s3_storage import S3NewsStorage
 from cortex_brand_analysis.workflows.classification_review import ClassificationReviewWorkflow
+from cortex_brand_analysis.workflows.exports import ExportWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
 from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
 
@@ -54,6 +60,10 @@ def get_news_workflow() -> NewsCheckWorkflow:
 
 def get_classification_workflow() -> ClassificationReviewWorkflow:
     return ClassificationReviewWorkflow(get_gateway())
+
+
+def get_export_workflow() -> ExportWorkflow:
+    return ExportWorkflow(get_gateway())
 
 
 def get_news_ingestion_workflow() -> NewsIngestionWorkflow:
@@ -159,6 +169,44 @@ def apply_news_ingestion(
         return workflow.apply(request)
     except CortexError as exc:
         logger.exception("Cortex news ingestion apply failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Cortex upstream operation failed",
+        ) from exc
+
+
+@app.post(
+    "/v1/exports/publications",
+    response_model=ExportResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def export_publications(
+    request: PublicationExportRequest,
+    workflow: ExportWorkflow = Depends(get_export_workflow),
+) -> ExportResult:
+    try:
+        return workflow.publications(request)
+    except CortexError as exc:
+        logger.exception("Cortex publications export failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Cortex upstream operation failed",
+        ) from exc
+
+
+@app.post(
+    "/v1/exports/media-analysis",
+    response_model=ExportResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def export_media_analysis(
+    request: MediaAnalysisExportRequest,
+    workflow: ExportWorkflow = Depends(get_export_workflow),
+) -> ExportResult:
+    try:
+        return workflow.media_analysis(request)
+    except CortexError as exc:
+        logger.exception("Cortex media-analysis export failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Cortex upstream operation failed",
