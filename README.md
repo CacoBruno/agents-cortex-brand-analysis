@@ -134,3 +134,42 @@ Para habilitar o enriquecimento com OpenAI:
 ```bash
 pip install -e ".[ai,dev]"
 ```
+
+
+## Exportações
+
+### Publicações
+
+```text
+POST /v1/exports/publications
+```
+
+Filtros tipados:
+- empresa/produto;
+- período;
+- mídia;
+- tier;
+- estado.
+
+### Análise de Mídia
+
+```text
+POST /v1/exports/media-analysis
+```
+
+Além dos filtros acima, aceita sentimento, protagonismo, tópico, assunto específico,
+ação, origem da menção, jornalista, temas, macro assunto, tipos de impacto e status
+de classificação.
+
+As duas rotas retornam:
+
+```json
+{
+  "rows": 1,
+  "columns": ["..."],
+  "data": [{"...": "..."}]
+}
+```
+
+O LLM não monta filtros Cortex diretamente; ele deverá produzir um desses requests
+tipados e o workflow determinístico executa a consulta.
