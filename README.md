@@ -1,6 +1,6 @@
 # Agents Cortex Brand Analysis
 
-Refatoração do projeto `mcp-pr-tools-ai` para uma arquitetura segura, testável e auditável de automações e agentes para análise de marca da Cortex.
+Refatoração e integração do projeto `cortex-brand-ai-tools` para uma arquitetura segura, testável e auditável de automações e agentes para análise de marca da Cortex.
 
 ## Status
 
@@ -12,7 +12,7 @@ API (FastAPI)
  -> Adapters (Cortex HTTP, OpenAI, S3, índice JSONL)
 ```
 
-O repositório antigo permanece como referência funcional durante a migração.
+O repositório `CacoBruno/cortex-brand-ai-tools` é a fonte funcional principal da migração.
 Os agentes LLM (`agents/`) ainda não foram implementados; veja
 [docs/architecture.md](docs/architecture.md).
 
@@ -335,3 +335,42 @@ GET /v1/audit/runs?limit=100
 
 A rota é protegida pela mesma API key e retorna primeiro as execuções mais recentes.
 O limite máximo é 500 registros.
+
+
+## Fonte funcional correta
+
+A integração agora usa como fonte principal:
+
+```text
+CacoBruno/cortex-brand-ai-tools
+```
+
+O projeto `mcp-pr-tools-ai` foi usado inicialmente por engano e permanece apenas
+como referência histórica para alguns fluxos já migrados.
+
+O plano detalhado está em:
+
+```text
+docs/cortex_brand_ai_tools_integration.md
+```
+
+### Índices de comunicação
+
+Primeiro bloco migrado do projeto correto:
+
+```text
+POST /v1/indexes/communication
+```
+
+Operações:
+- `nps`;
+- `nps_contribution`;
+- `protagonism`;
+- `frequency`;
+- `valoration`;
+- `journalist`;
+- `action`.
+
+Esses cálculos foram portados das funções de
+`services/index_function.py`, mas recebem dados explicitamente no request, sem
+depender do `DATAFRAME_STORE` global do projeto original.
