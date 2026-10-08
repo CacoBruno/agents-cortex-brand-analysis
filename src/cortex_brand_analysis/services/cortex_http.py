@@ -13,6 +13,7 @@ from cortex_brand_analysis.domain.classification import (
     ClassificationRecord,
     ClassificationSelector,
 )
+from cortex_brand_analysis.domain.errors import ConfigurationError, DomainError, UpstreamError
 from cortex_brand_analysis.domain.exports import (
     MediaAnalysisExportRequest,
     PublicationExportRequest,
@@ -80,7 +81,7 @@ MEDIA_ANALYSIS_EXPORT_FIELDS = [
 ]
 
 
-class CortexError(RuntimeError):
+class CortexError(UpstreamError):
     pass
 
 
@@ -93,7 +94,7 @@ class CortexHTTPGateway:
 
     def __init__(self, settings: Settings, client: httpx.Client | None = None) -> None:
         if not settings.platform_login or not settings.platform_password:
-            raise CortexAuthenticationError(
+            raise ConfigurationError(
                 "PLATFORM_LOGIN and PLATFORM_PASSWORD are required for Cortex operations"
             )
         self.settings = settings
@@ -104,7 +105,7 @@ class CortexHTTPGateway:
         candidate = platform_url if "://" in platform_url else f"https://{platform_url}"
         host = urlparse(candidate).hostname
         if not host:
-            raise ValueError(f"Invalid platform URL: {platform_url}")
+            raise DomainError(f"Invalid platform URL: {platform_url}")
         return host.split(".")[0].lower()
 
     def _authenticate(self, client_name: str) -> dict[str, str]:
@@ -400,7 +401,10 @@ class CortexHTTPGateway:
             json=content,
         )
         datainput.raise_for_status()
-        data_input_id = datainput.json()["id"]
+        try:
+            data_input_id = datainput.json()["id"]
+        except (KeyError, ValueError) as exc:
+            raise CortexError("Unexpected datainput response") from exc
 
         execution = self.client.post(
             f"{base_url}/datainput/{data_input_id}/execution",
@@ -408,7 +412,10 @@ class CortexHTTPGateway:
             json=content,
         )
         execution.raise_for_status()
-        execution_id = str(execution.json()["executionId"])
+        try:
+            execution_id = str(execution.json()["executionId"])
+        except (KeyError, ValueError) as exc:
+            raise CortexError("Unexpected execution response") from exc
 
         upload = self.client.post(
             f"{base_url}/execution/{execution_id}/file",

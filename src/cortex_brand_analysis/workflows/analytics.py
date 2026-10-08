@@ -7,12 +7,13 @@ from cortex_brand_analysis.domain.analytics import (
     AnalyticsRequest,
     AnalyticsResult,
 )
+from cortex_brand_analysis.domain.errors import DomainError
 
 
 def _validate_columns(df: pd.DataFrame, columns: list[str]) -> None:
     missing = [column for column in columns if column not in df.columns]
     if missing:
-        raise ValueError(f"unknown columns: {missing}")
+        raise DomainError(f"unknown columns: {missing}")
 
 
 def _apply_filter(df: pd.DataFrame, item: AnalyticsFilter) -> pd.DataFrame:
@@ -32,7 +33,7 @@ def _apply_filter(df: pd.DataFrame, item: AnalyticsFilter) -> pd.DataFrame:
         return df[series >= item.value]
     if item.operator == "lte":
         return df[series <= item.value]
-    raise ValueError(f"unsupported operator: {item.operator}")
+    raise DomainError(f"unsupported operator: {item.operator}")
 
 
 def _records(df: pd.DataFrame, limit: int) -> list[dict]:
@@ -67,7 +68,7 @@ class AnalyticsWorkflow:
 
         if request.operation == "value_counts":
             if len(request.columns) != 1:
-                raise ValueError("value_counts requires exactly one column")
+                raise DomainError("value_counts requires exactly one column")
             column = request.columns[0]
             _validate_columns(df, [column])
             result = (
@@ -143,4 +144,4 @@ class AnalyticsWorkflow:
                 summary={"filtered_rows": len(df)},
             )
 
-        raise ValueError(f"unsupported operation: {request.operation}")
+        raise DomainError(f"unsupported operation: {request.operation}")

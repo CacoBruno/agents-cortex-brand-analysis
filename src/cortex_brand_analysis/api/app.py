@@ -4,10 +4,13 @@ import hmac
 import logging
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 
 from cortex_brand_analysis.config import get_settings
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest, AnalyticsResult
@@ -18,6 +21,7 @@ from cortex_brand_analysis.domain.classification import (
     ClassificationReviewPreview,
     ClassificationReviewRequest,
 )
+from cortex_brand_analysis.domain.errors import ConfigurationError, DomainError, UpstreamError
 from cortex_brand_analysis.domain.exports import (
     ExportResult,
     MediaAnalysisExportRequest,
@@ -37,7 +41,7 @@ from cortex_brand_analysis.domain.rag import (
     RagQueryRequest,
 )
 from cortex_brand_analysis.services.audit_store import JsonlAuditStore
-from cortex_brand_analysis.services.cortex_http import CortexError, CortexHTTPGateway
+from cortex_brand_analysis.services.cortex_http import CortexHTTPGateway
 from cortex_brand_analysis.services.knowledge_index import JsonlKnowledgeIndex
 from cortex_brand_analysis.services.news_enrichment import OpenAINewsEnricher
 from cortex_brand_analysis.services.openai_rag import OpenAIRagService
@@ -65,8 +69,38 @@ app = FastAPI(
 )
 
 
+@app.exception_handler(DomainError)
+async def handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": str(exc)},
+    )
+
+
+@app.exception_handler(ConfigurationError)
+async def handle_configuration_error(request: Request, exc: ConfigurationError) -> JSONResponse:
+    logger.exception("Service is not configured for %s", request.url.path)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Service is not configured for this operation"},
+    )
+
+
+@app.exception_handler(UpstreamError)
+@app.exception_handler(httpx.HTTPError)
+async def handle_upstream_error(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Upstream operation failed for %s", request.url.path)
+    return JSONResponse(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        content={"detail": "Upstream operation failed"},
+    )
+
+
 @app.middleware("http")
-async def audit_requests(request: Request, call_next):
+async def audit_requests(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     run_id = str(uuid.uuid4())
     started_at = datetime.now(ZoneInfo("America/Sao_Paulo"))
     started_perf = time.perf_counter()
@@ -182,14 +216,7 @@ def check_news(
     request: NewsCheckRequest,
     workflow: NewsCheckWorkflow = Depends(get_news_workflow),
 ) -> NewsCheckResult:
-    try:
-        return workflow.run(request)
-    except CortexError as exc:
-        logger.exception("Cortex operation failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cortex upstream operation failed",
-        ) from exc
+    return workflow.run(request)
 
 
 @app.post(
@@ -201,14 +228,7 @@ def preview_classification_review(
     request: ClassificationReviewRequest,
     workflow: ClassificationReviewWorkflow = Depends(get_classification_workflow),
 ) -> ClassificationReviewPreview:
-    try:
-        return workflow.preview(request)
-    except CortexError as exc:
-        logger.exception("Cortex classification preview failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cortex upstream operation failed",
-        ) from exc
+    return workflow.preview(request)
 
 
 @app.post(
@@ -220,14 +240,7 @@ def apply_classification_review(
     request: ClassificationApplyRequest,
     workflow: ClassificationReviewWorkflow = Depends(get_classification_workflow),
 ) -> ClassificationApplyResult:
-    try:
-        return workflow.apply(request)
-    except CortexError as exc:
-        logger.exception("Cortex classification apply failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cortex upstream operation failed",
-        ) from exc
+    return workflow.apply(request)
 
 
 @app.post(
@@ -239,14 +252,7 @@ def preview_news_ingestion(
     request: NewsIngestionRequest,
     workflow: NewsIngestionWorkflow = Depends(get_news_ingestion_workflow),
 ) -> NewsIngestionPreview:
-    try:
-        return workflow.preview(request)
-    except CortexError as exc:
-        logger.exception("Cortex news ingestion preview failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cortex upstream operation failed",
-        ) from exc
+    return workflow.preview(request)
 
 
 @app.post(
@@ -258,14 +264,7 @@ def apply_news_ingestion(
     request: NewsIngestionApplyRequest,
     workflow: NewsIngestionWorkflow = Depends(get_news_ingestion_workflow),
 ) -> NewsIngestionApplyResult:
-    try:
-        return workflow.apply(request)
-    except CortexError as exc:
-        logger.exception("Cortex news ingestion apply failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cortex upstream operation failed",
-        ) from exc
+    return workflow.apply(request)
 
 
 @app.post(
@@ -277,14 +276,7 @@ def export_publications(
     request: PublicationExportRequest,
     workflow: ExportWorkflow = Depends(get_export_workflow),
 ) -> ExportResult:
-    try:
-        return workflow.publications(request)
-    except CortexError as exc:
-        logger.exception("Cortex publications export failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cortex upstream operation failed",
-        ) from exc
+    return workflow.publications(request)
 
 
 @app.post(
@@ -296,14 +288,7 @@ def export_media_analysis(
     request: MediaAnalysisExportRequest,
     workflow: ExportWorkflow = Depends(get_export_workflow),
 ) -> ExportResult:
-    try:
-        return workflow.media_analysis(request)
-    except CortexError as exc:
-        logger.exception("Cortex media-analysis export failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cortex upstream operation failed",
-        ) from exc
+    return workflow.media_analysis(request)
 
 
 @app.post(

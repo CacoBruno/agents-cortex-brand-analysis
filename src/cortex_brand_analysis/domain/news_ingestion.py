@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import date
+from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field, HttpUrl
@@ -52,7 +53,7 @@ class NewsIngestionPreview(BaseModel):
 
 
 class NewsIngestionApplyRequest(NewsIngestionRequest):
-    confirm: bool
+    confirm: Literal[True]
 
 
 class NewsIngestionApplyResult(BaseModel):

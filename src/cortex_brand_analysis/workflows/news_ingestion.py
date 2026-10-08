@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from cortex_brand_analysis.domain.errors import DomainError
 from cortex_brand_analysis.domain.models import NewsCheckRequest
 from cortex_brand_analysis.domain.news_ingestion import (
     EnrichedNews,
@@ -75,7 +76,7 @@ class NewsIngestionWorkflow:
 
     def apply(self, request: NewsIngestionApplyRequest) -> NewsIngestionApplyResult:
         if request.confirm is not True:
-            raise ValueError("confirm=true is required to store enriched news")
+            raise DomainError("confirm=true is required to store enriched news")
 
         preview = self.preview(
             NewsIngestionRequest(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from cortex_brand_analysis.config import Settings
+from cortex_brand_analysis.domain.errors import ConfigurationError, UpstreamError
 from cortex_brand_analysis.domain.news_ingestion import EnrichedNews
 
 
@@ -25,21 +26,25 @@ class S3NewsStorage:
 
         try:
             import boto3
+            from botocore.exceptions import BotoCoreError, ClientError
         except ImportError as exc:
-            raise RuntimeError("boto3 is required for S3 ingestion") from exc
+            raise ConfigurationError("boto3 is required for S3 ingestion") from exc
 
-        client = boto3.client("s3", region_name=self.settings.aws_region)
         keys: list[str] = []
-        for item in items:
-            key = f"{self.prefix}{item.idempotency_key}.json"
-            payload = item.model_dump(mode="json")
-            payload["plataforma_url"] = platform_url
-            client.put_object(
-                Bucket=self.bucket,
-                Key=key,
-                Body=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-                ContentType="application/json; charset=utf-8",
-                Metadata={"idempotency-key": item.idempotency_key},
-            )
-            keys.append(key)
+        try:
+            client = boto3.client("s3", region_name=self.settings.aws_region)
+            for item in items:
+                key = f"{self.prefix}{item.idempotency_key}.json"
+                payload = item.model_dump(mode="json")
+                payload["plataforma_url"] = platform_url
+                client.put_object(
+                    Bucket=self.bucket,
+                    Key=key,
+                    Body=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                    ContentType="application/json; charset=utf-8",
+                    Metadata={"idempotency-key": item.idempotency_key},
+                )
+                keys.append(key)
+        except (BotoCoreError, ClientError) as exc:
+            raise UpstreamError("S3 storage operation failed") from exc
         return keys

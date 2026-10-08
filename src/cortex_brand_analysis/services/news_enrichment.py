@@ -8,11 +8,10 @@ import httpx
 from bs4 import BeautifulSoup
 
 from cortex_brand_analysis.config import Settings
+from cortex_brand_analysis.domain.errors import ConfigurationError, NewsEnrichmentError
 from cortex_brand_analysis.domain.news_ingestion import EnrichedNews, news_idempotency_key
 
-
-class NewsEnrichmentError(RuntimeError):
-    pass
+__all__ = ["NewsEnrichmentError", "OpenAINewsEnricher"]
 
 
 class OpenAINewsEnricher:
@@ -20,7 +19,7 @@ class OpenAINewsEnricher:
 
     def __init__(self, settings: Settings, client: httpx.Client | None = None) -> None:
         if not settings.openai_api_key:
-            raise NewsEnrichmentError("OPENAI_API_KEY is required for news enrichment")
+            raise ConfigurationError("OPENAI_API_KEY is required for news enrichment")
         self.settings = settings
         self.client = client or httpx.Client(
             timeout=settings.http_timeout_seconds,
