@@ -4,16 +4,17 @@ Refatoração do projeto `mcp-pr-tools-ai` para uma arquitetura segura, testáve
 
 ## Status
 
-Esta branch inicia a arquitetura v2 e migra o primeiro fluxo real:
+A arquitetura v2 já cobre os fluxos abaixo, todos expostos pela API:
 
 ```text
-API
- -> NewsCheckWorkflow
- -> CortexHTTPGateway
- -> Cortex Publicações / PR Data
+API (FastAPI)
+ -> Workflows (news check, ingestão, revisão de classificação, exports, RAG, analytics)
+ -> Adapters (Cortex HTTP, OpenAI, S3, índice JSONL)
 ```
 
 O repositório antigo permanece como referência funcional durante a migração.
+Os agentes LLM (`agents/`) ainda não foram implementados; veja
+[docs/architecture.md](docs/architecture.md).
 
 ## Princípios
 
@@ -44,17 +45,39 @@ Veja [docs/architecture.md](docs/architecture.md) para o desenho completo e o ma
 
 ## Desenvolvimento
 
-Python 3.11:
+Python 3.11 ou 3.12:
 
 ```bash
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
 
-pip install -e ".[dev]"
-copy .env.example .env
-pytest
+pip install -e ".[ai,dev]"
+```
+
+Crie um arquivo `.env` na raiz do projeto (ele é ignorado pelo git) com as variáveis
+abaixo, no formato `NOME=valor`, uma por linha:
+
+| Variável | Obrigatória | Padrão | Uso |
+|---|---|---|---|
+| `MCP_API_KEY` | sim (mín. 16 caracteres) | – | chave exigida no header `X-API-Key` |
+| `PLATFORM_LOGIN` | para rotas Cortex | – | login da plataforma Cortex |
+| `PLATFORM_PASSWORD` | para rotas Cortex | – | senha da plataforma Cortex |
+| `OPENAI_API_KEY` | para ingestão e RAG | – | enriquecimento de notícias e RAG |
+| `AWS_REGION` | não | `sa-east-1` | região do S3 |
+| `LOG_LEVEL` | não | `INFO` | reservado; o logging ainda não é configurado pela aplicação |
+| `HTTP_TIMEOUT_SECONDS` | não | `20` | timeout das chamadas HTTP (máx. 120) |
+
+As credenciais AWS **não** são lidas do `.env`: o boto3 usa a cadeia padrão
+(variáveis de ambiente do processo, `~/.aws/credentials` ou role da instância).
+
+Checagens (as mesmas do CI):
+
+```bash
 ruff check .
+ruff format --check .
+mypy src
+pytest --cov=src/cortex_brand_analysis
 ```
 
 Para subir a API:
@@ -88,14 +111,24 @@ Exemplo:
 }
 ```
 
-## Próximas migrações
+## Códigos de erro da API
 
-1. revisão de classificação;
-2. enriquecimento e upload controlado de notícias;
-3. exportação de Publicações e Análise de Mídia;
-4. RAG de produto com fontes e build reproduzível;
-5. analytics agent seguro;
-6. audit trail, idempotência e persistência de runs.
+| Status | Quando |
+|---|---|
+| `401` | `X-API-Key` inválida |
+| `422` | request inválido ou regra de negócio violada (ex.: coluna inexistente no analytics); a mensagem é retornada |
+| `502` | falha em serviço externo (Cortex, OpenAI, S3); detalhes ficam apenas no log |
+| `503` | credencial ou dependência opcional ausente para a operação (ex.: `PLATFORM_LOGIN`, `OPENAI_API_KEY`) |
+
+## Migrações concluídas
+
+1. checagem de notícias (Publicações + PR Data);
+2. revisão de classificação com preview/apply;
+3. enriquecimento e upload controlado de notícias;
+4. exportação de Publicações e Análise de Mídia;
+5. RAG de produto com fontes e build reproduzível;
+6. analytics seguro com operações allow-listed;
+7. audit trail, idempotência e persistência de runs.
 
 
 ## Ingestão de notícias
@@ -114,6 +147,11 @@ O workflow:
 3. enriquece apenas URLs realmente ausentes;
 4. gera `idempotency_key` determinística por cliente + URL;
 5. retorna o payload sem gravar no Data Lake.
+
+URLs que falham aparecem em `failed` com uma mensagem segura (ex.: `page responded
+with HTTP 404`). Por proteção contra SSRF, só são aceitas URLs `http`/`https` cujo
+host resolva para IPs públicos; redirecionamentos são validados a cada salto e a
+página é limitada a 5 MB.
 
 ### Apply
 
