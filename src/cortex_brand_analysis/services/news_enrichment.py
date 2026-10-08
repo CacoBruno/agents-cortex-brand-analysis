@@ -73,7 +73,7 @@ class OpenAINewsEnricher:
 
         ai = OpenAI(api_key=self.settings.openai_api_key)
         result = ai.responses.create(
-            model="gpt-4o-mini",
+            model="gpt-6-luna",
             input=[
                 {
                     "role": "system",
