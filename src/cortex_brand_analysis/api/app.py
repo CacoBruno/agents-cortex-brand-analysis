@@ -15,6 +15,10 @@ from fastapi.responses import JSONResponse
 from cortex_brand_analysis.config import get_settings
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest, AnalyticsResult
 from cortex_brand_analysis.domain.audit import AuditRun, AuditRunList
+from cortex_brand_analysis.domain.communication_indexes import (
+    CommunicationIndexRequest,
+    CommunicationIndexResult,
+)
 from cortex_brand_analysis.domain.classification import (
     ClassificationApplyRequest,
     ClassificationApplyResult,
@@ -48,6 +52,7 @@ from cortex_brand_analysis.services.openai_rag import OpenAIRagService
 from cortex_brand_analysis.services.s3_storage import S3NewsStorage
 from cortex_brand_analysis.workflows.analytics import AnalyticsWorkflow
 from cortex_brand_analysis.workflows.classification_review import ClassificationReviewWorkflow
+from cortex_brand_analysis.workflows.communication_indexes import CommunicationIndexesWorkflow
 from cortex_brand_analysis.workflows.exports import ExportWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
 from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
@@ -179,6 +184,10 @@ def get_classification_workflow() -> ClassificationReviewWorkflow:
 
 def get_analytics_workflow() -> AnalyticsWorkflow:
     return AnalyticsWorkflow()
+
+
+def get_communication_indexes_workflow() -> CommunicationIndexesWorkflow:
+    return CommunicationIndexesWorkflow()
 
 
 def get_export_workflow() -> ExportWorkflow:
@@ -335,3 +344,17 @@ def run_analytics(
 def list_audit_runs(limit: int = 100) -> AuditRunList:
     bounded_limit = max(1, min(limit, 500))
     return AuditRunList(runs=audit_store.list_runs(limit=bounded_limit))
+
+
+@app.post(
+    "/v1/indexes/communication",
+    response_model=CommunicationIndexResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def run_communication_index(
+    request: CommunicationIndexRequest,
+    workflow: CommunicationIndexesWorkflow = Depends(
+        get_communication_indexes_workflow
+    ),
+) -> CommunicationIndexResult:
+    return workflow.run(request)
