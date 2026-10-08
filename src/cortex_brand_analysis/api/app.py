@@ -19,6 +19,11 @@ from cortex_brand_analysis.domain.communication_indexes import (
     CommunicationIndexRequest,
     CommunicationIndexResult,
 )
+from cortex_brand_analysis.domain.compatibility import (
+    LegacyCapabilities,
+    LegacyToolRequest,
+    LegacyToolResult,
+)
 from cortex_brand_analysis.domain.classification import (
     ClassificationApplyRequest,
     ClassificationApplyResult,
@@ -53,6 +58,7 @@ from cortex_brand_analysis.services.s3_storage import S3NewsStorage
 from cortex_brand_analysis.workflows.analytics import AnalyticsWorkflow
 from cortex_brand_analysis.workflows.classification_review import ClassificationReviewWorkflow
 from cortex_brand_analysis.workflows.communication_indexes import CommunicationIndexesWorkflow
+from cortex_brand_analysis.workflows.compatibility import CompatibilityWorkflow
 from cortex_brand_analysis.workflows.exports import ExportWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
 from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
@@ -188,6 +194,10 @@ def get_analytics_workflow() -> AnalyticsWorkflow:
 
 def get_communication_indexes_workflow() -> CommunicationIndexesWorkflow:
     return CommunicationIndexesWorkflow()
+
+
+def get_compatibility_workflow() -> CompatibilityWorkflow:
+    return CompatibilityWorkflow()
 
 
 def get_export_workflow() -> ExportWorkflow:
@@ -357,4 +367,27 @@ def run_communication_index(
         get_communication_indexes_workflow
     ),
 ) -> CommunicationIndexResult:
+    return workflow.run(request)
+
+
+@app.get(
+    "/v1/compat/capabilities",
+    response_model=LegacyCapabilities,
+    dependencies=[Depends(verify_api_key)],
+)
+def list_legacy_capabilities(
+    workflow: CompatibilityWorkflow = Depends(get_compatibility_workflow),
+) -> LegacyCapabilities:
+    return workflow.capabilities()
+
+
+@app.post(
+    "/v1/compat/run",
+    response_model=LegacyToolResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def run_legacy_capability(
+    request: LegacyToolRequest,
+    workflow: CompatibilityWorkflow = Depends(get_compatibility_workflow),
+) -> LegacyToolResult:
     return workflow.run(request)
