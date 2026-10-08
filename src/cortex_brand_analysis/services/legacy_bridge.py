@@ -70,12 +70,18 @@ LEGACY_GROUP_TOOLS: dict[str, set[str]] = {
 
 
 def legacy_root() -> Path:
-    root = Path(__file__).resolve().parents[3] / "legacy" / "cortex_brand_ai_tools"
-    if not root.exists():
-        raise LegacyRuntimeUnavailable(
-            "legacy/cortex_brand_ai_tools is not available in this checkout"
-        )
-    return root
+    repository_root = Path(__file__).resolve().parents[3]
+    full_source = repository_root / "legacy" / "cortex-brand-ai-tools-source"
+    python_snapshot = repository_root / "legacy" / "cortex_brand_ai_tools"
+
+    if full_source.exists() and any(full_source.iterdir()):
+        return full_source
+    if python_snapshot.exists():
+        return python_snapshot
+
+    raise LegacyRuntimeUnavailable(
+        "legacy source is unavailable; initialize the submodule or use a source checkout"
+    )
 
 
 def ensure_legacy_on_path() -> Path:
