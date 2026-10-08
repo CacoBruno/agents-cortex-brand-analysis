@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Protocol
 
-from cortex_brand_analysis.domain.errors import DomainError
+from cortex_brand_analysis.domain.errors import (
+    ConfigurationError,
+    DomainError,
+    NewsEnrichmentError,
+)
 from cortex_brand_analysis.domain.models import NewsCheckRequest
 from cortex_brand_analysis.domain.news_ingestion import (
     EnrichedNews,
@@ -13,6 +18,8 @@ from cortex_brand_analysis.domain.news_ingestion import (
 )
 from cortex_brand_analysis.services.protocols import CortexGateway
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
+
+logger = logging.getLogger(__name__)
 
 
 class NewsEnricher(Protocol):
@@ -62,8 +69,13 @@ class NewsIngestionWorkflow:
         for url in to_enrich:
             try:
                 enriched.append(self.enricher.enrich(url, client_name))
-            except Exception as exc:
+            except NewsEnrichmentError as exc:
                 failed[url] = str(exc)
+            except ConfigurationError:
+                raise
+            except Exception:
+                logger.exception("Unexpected failure enriching news URL")
+                failed[url] = "unexpected failure while enriching the news"
 
         return NewsIngestionPreview(
             requested=len(urls),

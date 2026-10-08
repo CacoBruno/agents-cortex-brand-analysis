@@ -1,5 +1,9 @@
 from datetime import date
 
+import pytest
+from pydantic import ValidationError
+
+from cortex_brand_analysis.domain.errors import NewsEnrichmentError
 from cortex_brand_analysis.domain.models import PublicationMatch
 from cortex_brand_analysis.domain.news_ingestion import (
     EnrichedNews,
@@ -28,7 +32,8 @@ class FakeCortex:
 
 
 class FakeEnricher:
-    calls = []
+    def __init__(self):
+        self.calls = []
 
     def enrich(self, url, client_name):
         self.calls.append(url)
@@ -44,8 +49,16 @@ class FakeEnricher:
         )
 
 
+class FailingEnricher:
+    def enrich(self, url, client_name):
+        if url.endswith("/known"):
+            raise NewsEnrichmentError("page responded with HTTP 404")
+        raise RuntimeError("Incorrect API key provided: sk-proj-****abcd (org-123)")
+
+
 class FakeStorage:
-    items = None
+    def __init__(self):
+        self.items = None
 
     def store(self, items, platform_url):
         self.items = items
@@ -79,6 +92,22 @@ def test_preview_only_enriches_items_missing_from_platform_and_lake():
     assert storage.items is None
 
 
+def test_preview_does_not_leak_internal_error_messages():
+    workflow = NewsIngestionWorkflow(FakeCortex(), FailingEnricher(), FakeStorage())
+
+    result = workflow.preview(
+        NewsIngestionRequest(
+            platform_url="cliente.cortex-intelligence.com",
+            urls=["https://example.com/known", "https://example.com/boom"],
+        )
+    )
+
+    assert result.failed == {
+        "https://example.com/known": "page responded with HTTP 404",
+        "https://example.com/boom": "unexpected failure while enriching the news",
+    }
+
+
 def test_apply_stores_using_deterministic_keys():
     enricher = FakeEnricher()
     storage = FakeStorage()
@@ -95,3 +124,12 @@ def test_apply_stores_using_deterministic_keys():
     assert result.stored == 1
     assert result.storage_keys[0].endswith(".json")
     assert storage.items[0].idempotency_key in result.storage_keys[0]
+
+
+def test_apply_requires_explicit_confirmation():
+    with pytest.raises(ValidationError):
+        NewsIngestionApplyRequest(
+            platform_url="cliente.cortex-intelligence.com",
+            urls=["https://example.com/new"],
+            confirm=False,
+        )
