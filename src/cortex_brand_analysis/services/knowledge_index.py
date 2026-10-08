@@ -6,7 +6,6 @@ import math
 from pathlib import Path
 
 from cortex_brand_analysis.domain.rag import (
-    KnowledgeBuildResult,
     KnowledgeChunk,
     KnowledgeDocument,
     RetrievedChunk,
@@ -29,7 +28,7 @@ def chunk_text(text: str, size: int = 1200, overlap: int = 200) -> list[str]:
 
 
 def make_chunk_id(document_id: str, index: int, text: str) -> str:
-    raw = f"{document_id}|{index}|{text}".encode("utf-8")
+    raw = f"{document_id}|{index}|{text}".encode()
     return hashlib.sha256(raw).hexdigest()
 
 
