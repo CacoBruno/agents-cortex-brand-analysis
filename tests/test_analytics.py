@@ -1,7 +1,6 @@
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest
 from cortex_brand_analysis.workflows.analytics import AnalyticsWorkflow
 
-
 DATA = [
     {"tema": "Crédito", "valor": 10, "data": "2026-01-01"},
     {"tema": "Crédito", "valor": 20, "data": "2026-02-01"},
