@@ -34,7 +34,7 @@ class AnalyticsRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=500)
 
     @model_validator(mode="after")
-    def validate_operation(self) -> "AnalyticsRequest":
+    def validate_operation(self) -> AnalyticsRequest:
         if self.operation == "groupby":
             if not self.group_by:
                 raise ValueError("groupby requires group_by")
