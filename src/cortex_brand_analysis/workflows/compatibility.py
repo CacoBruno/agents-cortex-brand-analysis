@@ -6,10 +6,7 @@ from cortex_brand_analysis.domain.compatibility import (
     LegacyToolRequest,
     LegacyToolResult,
 )
-from cortex_brand_analysis.services.legacy_bridge import (
-    LEGACY_GROUP_TOOLS,
-    invoke_tool,
-)
+from cortex_brand_analysis.services.legacy_bridge import LEGACY_GROUP_TOOLS, invoke_tool
 
 
 NATIVE_TOOLS = {
