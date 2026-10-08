@@ -13,6 +13,9 @@ LegacyGroup = Literal[
     "insights",
     "visualization",
     "highlights",
+    "delivery",
+    "news",
+    "ppt",
 ]
 
 
