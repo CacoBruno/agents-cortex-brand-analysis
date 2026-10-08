@@ -28,7 +28,9 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-cov>=5,<7",
   "ruff>=0.7,<1",
-  "mypy>=1.13,<2"
+  "mypy>=1.13,<2",
+  "pandas-stubs>=2.2,<3",
+  "boto3-stubs[s3]>=1.35,<2"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -46,7 +48,7 @@ target-version = "py311"
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.mypy]
-python_version = "3.11"
+plugins = ["pydantic.mypy"]
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

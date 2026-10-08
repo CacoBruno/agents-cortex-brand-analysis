@@ -9,15 +9,18 @@ class FakeRagService:
     def embed(self, texts):
         vectors = []
         for text in texts:
-            vectors.append([
-                float("reputação" in text.lower()),
-                float("alcance" in text.lower()),
-                float(len(text) % 7),
-            ])
+            vectors.append(
+                [
+                    float("reputação" in text.lower()),
+                    float("alcance" in text.lower()),
+                    float(len(text) % 7),
+                ]
+            )
         return vectors
 
     def answer(self, question, sources):
         from cortex_brand_analysis.domain.rag import RagAnswer
+
         return RagAnswer(answer=f"Resposta: {question}", sources=sources)
 
 
@@ -25,14 +28,16 @@ def test_build_and_query_use_safe_jsonl_index(tmp_path: Path):
     index = JsonlKnowledgeIndex(tmp_path / "knowledge.jsonl")
     workflow = KnowledgeRagWorkflow(index, FakeRagService())
 
-    build = workflow.build([
-        KnowledgeDocument(
-            document_id="metodologia-1",
-            source="manual.md",
-            title="Metodologia",
-            text="O cálculo de reputação combina indicadores definidos pela metodologia.",
-        )
-    ])
+    build = workflow.build(
+        [
+            KnowledgeDocument(
+                document_id="metodologia-1",
+                source="manual.md",
+                title="Metodologia",
+                text="O cálculo de reputação combina indicadores definidos pela metodologia.",
+            )
+        ]
+    )
 
     assert build.documents == 1
     assert build.chunks == 1

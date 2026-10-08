@@ -37,8 +37,8 @@ def _apply_filter(df: pd.DataFrame, item: AnalyticsFilter) -> pd.DataFrame:
 
 
 def _records(df: pd.DataFrame, limit: int) -> list[dict]:
-    clean = df.head(limit).copy()
-    clean = clean.where(pd.notna(clean), None)
+    clean: pd.DataFrame = df.head(limit).copy()
+    clean = clean.where(pd.notna(clean), None)  # type: ignore[call-overload]
     return clean.to_dict(orient="records")
 
 
@@ -72,10 +72,7 @@ class AnalyticsWorkflow:
             column = request.columns[0]
             _validate_columns(df, [column])
             result = (
-                df[column]
-                .value_counts(dropna=False)
-                .rename_axis(column)
-                .reset_index(name="count")
+                df[column].value_counts(dropna=False).rename_axis(column).reset_index(name="count")
             )
             return AnalyticsResult(
                 operation=request.operation,
@@ -87,13 +84,10 @@ class AnalyticsWorkflow:
         if request.operation == "groupby":
             _validate_columns(df, request.group_by)
             if request.aggregation == "count":
-                result = (
-                    df.groupby(request.group_by, dropna=False)
-                    .size()
-                    .reset_index(name="count")
-                )
+                result = df.groupby(request.group_by, dropna=False).size().reset_index(name="count")
             else:
                 assert request.metric is not None
+                assert request.aggregation is not None
                 _validate_columns(df, [request.metric])
                 grouped = df.groupby(request.group_by, dropna=False)[request.metric]
                 result = getattr(grouped, request.aggregation)().reset_index()
@@ -117,6 +111,7 @@ class AnalyticsWorkflow:
 
         if request.operation == "timeseries":
             assert request.date_column is not None
+            assert request.frequency is not None
             _validate_columns(df, [request.date_column])
             work = df.copy()
             work[request.date_column] = pd.to_datetime(
@@ -129,6 +124,7 @@ class AnalyticsWorkflow:
                 result = work.resample(request.frequency).size().reset_index(name="count")
             else:
                 assert request.metric is not None
+                assert request.aggregation is not None
                 _validate_columns(work, [request.metric])
                 numeric = pd.to_numeric(work[request.metric], errors="coerce")
                 aggregated = getattr(

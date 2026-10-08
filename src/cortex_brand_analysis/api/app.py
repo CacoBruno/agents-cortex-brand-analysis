@@ -107,7 +107,7 @@ async def audit_requests(
     operation = f"{request.method} {request.url.path}"
     writes_external_state = request.url.path in WRITE_PATHS
 
-    input_summary = {
+    input_summary: dict[str, object] = {
         "method": request.method,
         "path": request.url.path,
         "query_keys": sorted(request.query_params.keys()),

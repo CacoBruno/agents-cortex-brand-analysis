@@ -51,9 +51,7 @@ class NewsIngestionWorkflow:
         )
 
         platform_urls = {
-            match.original_url
-            for match in check.found_in_platform
-            if match.original_url
+            match.original_url for match in check.found_in_platform if match.original_url
         }
         lake_urls = {
             str(item.get("original_link"))

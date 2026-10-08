@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import io
 import json
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -15,6 +16,7 @@ from cortex_brand_analysis.domain.classification import (
 )
 from cortex_brand_analysis.domain.errors import ConfigurationError, DomainError, UpstreamError
 from cortex_brand_analysis.domain.exports import (
+    DateRange,
     MediaAnalysisExportRequest,
     PublicationExportRequest,
 )
@@ -64,20 +66,52 @@ REVISION_FIELDS = [
 ANALISE_MIDIA_CUBE_ID = "01f6057b711545708703eec79e5426fd"
 
 PUBLICATION_EXPORT_FIELDS = [
-    "ID Cortex", "Título", "Data", "Conteúdo", "Mídia", "Fonte",
-    "Alcance orgânico", "Tier", "Status classificação", "Link",
-    "Link original da publicação", "Enviar no clipping?", "Empresas citadas",
-    "Produtos citados", "Porta Vozes", "Estado (final)",
+    "ID Cortex",
+    "Título",
+    "Data",
+    "Conteúdo",
+    "Mídia",
+    "Fonte",
+    "Alcance orgânico",
+    "Tier",
+    "Status classificação",
+    "Link",
+    "Link original da publicação",
+    "Enviar no clipping?",
+    "Empresas citadas",
+    "Produtos citados",
+    "Porta Vozes",
+    "Estado (final)",
 ]
 
 MEDIA_ANALYSIS_EXPORT_FIELDS = [
-    "Chave Análise de Mídia Hash", "Título", "Data", "Conteúdo", "Mídia",
-    "Fonte", "Alcance orgânico", "Alcance total", "Tier", "Empresa analisada",
-    "Produto analisado", "Status classificação", "Link",
-    "Link original da publicação", "Sentimento", "Nível de Protagonismo",
-    "Macro assunto", "Mensagem-chave", "Nível de Protagonismo final", "Tópicos",
-    "Assunto específico", "Ação", "Tipo da ação", "Jornalista", "Temas",
-    "Origem da menção", "Tipos de impactos",
+    "Chave Análise de Mídia Hash",
+    "Título",
+    "Data",
+    "Conteúdo",
+    "Mídia",
+    "Fonte",
+    "Alcance orgânico",
+    "Alcance total",
+    "Tier",
+    "Empresa analisada",
+    "Produto analisado",
+    "Status classificação",
+    "Link",
+    "Link original da publicação",
+    "Sentimento",
+    "Nível de Protagonismo",
+    "Macro assunto",
+    "Mensagem-chave",
+    "Nível de Protagonismo final",
+    "Tópicos",
+    "Assunto específico",
+    "Ação",
+    "Tipo da ação",
+    "Jornalista",
+    "Temas",
+    "Origem da menção",
+    "Tipos de impactos",
 ]
 
 
@@ -217,11 +251,13 @@ class CortexHTTPGateway:
                     client_name,
                     "Publicações",
                     CHECK_FIELDS,
-                    [{
-                        "name": "Link original da publicação",
-                        "exact_match": False,
-                        "values": original_urls,
-                    }],
+                    [
+                        {
+                            "name": "Link original da publicação",
+                            "exact_match": False,
+                            "values": original_urls,
+                        }
+                    ],
                 )
             )
 
@@ -231,11 +267,13 @@ class CortexHTTPGateway:
                     client_name,
                     "Publicações",
                     CHECK_FIELDS,
-                    [{
-                        "name": "Link",
-                        "exact_match": False,
-                        "values": clipping_urls,
-                    }],
+                    [
+                        {
+                            "name": "Link",
+                            "exact_match": False,
+                            "values": clipping_urls,
+                        }
+                    ],
                 )
             )
 
@@ -263,11 +301,13 @@ class CortexHTTPGateway:
             "prdata",
             "[Data Delivery] Publicações",
             CHECK_FIELDS_PR_DATA,
-            [{
-                "name": "original_link",
-                "exact_match": False,
-                "values": original_urls,
-            }],
+            [
+                {
+                    "name": "original_link",
+                    "exact_match": False,
+                    "values": original_urls,
+                }
+            ],
         )
         if "cliente" in frame.columns:
             frame = frame[frame["cliente"].astype(str) == client]
@@ -283,44 +323,56 @@ class CortexHTTPGateway:
 
         for selector in selectors:
             if selector.media_analysis_id:
-                filters = [{
-                    "name": "Chave Análise de Mídia Hash",
-                    "exact_match": False,
-                    "values": [selector.media_analysis_id],
-                }]
+                filters = [
+                    {
+                        "name": "Chave Análise de Mídia Hash",
+                        "exact_match": False,
+                        "values": [selector.media_analysis_id],
+                    }
+                ]
             else:
                 filters = []
                 if selector.original_url:
-                    filters.append({
-                        "name": "Link original da publicação",
-                        "exact_match": False,
-                        "values": [selector.original_url],
-                    })
+                    filters.append(
+                        {
+                            "name": "Link original da publicação",
+                            "exact_match": False,
+                            "values": [selector.original_url],
+                        }
+                    )
                 elif selector.clipping_url:
-                    filters.append({
-                        "name": "Link",
-                        "exact_match": False,
-                        "values": [selector.clipping_url],
-                    })
+                    filters.append(
+                        {
+                            "name": "Link",
+                            "exact_match": False,
+                            "values": [selector.clipping_url],
+                        }
+                    )
                 elif selector.title:
-                    filters.append({
-                        "name": "Título",
-                        "exact_match": False,
-                        "values": [selector.title],
-                    })
+                    filters.append(
+                        {
+                            "name": "Título",
+                            "exact_match": False,
+                            "values": [selector.title],
+                        }
+                    )
 
                 if selector.company:
-                    filters.append({
-                        "name": "Empresa analisada",
-                        "exact_match": False,
-                        "values": [selector.company],
-                    })
+                    filters.append(
+                        {
+                            "name": "Empresa analisada",
+                            "exact_match": False,
+                            "values": [selector.company],
+                        }
+                    )
                 if selector.product:
-                    filters.append({
-                        "name": "Produto analisado",
-                        "exact_match": False,
-                        "values": [selector.product],
-                    })
+                    filters.append(
+                        {
+                            "name": "Produto analisado",
+                            "exact_match": False,
+                            "values": [selector.product],
+                        }
+                    )
 
             if filters:
                 frames.append(
@@ -335,9 +387,8 @@ class CortexHTTPGateway:
         if not frames:
             return []
 
-        data = (
-            pd.concat(frames, ignore_index=True)
-            .drop_duplicates(subset=["Chave Análise de Mídia Hash"])
+        data = pd.concat(frames, ignore_index=True).drop_duplicates(
+            subset=["Chave Análise de Mídia Hash"]
         )
 
         value_fields = [
@@ -449,17 +500,16 @@ class CortexHTTPGateway:
         self,
         request: PublicationExportRequest,
     ) -> list[dict]:
-        filters = _build_filters([
-            ("Empresas citadas", request.companies),
-            ("Produtos citados", request.products),
-            ("Estado (final)", request.states),
-            ("Mídia", request.media),
-            ("Tier", request.tiers),
-        ])
-        filters.append({
-            "name": "Data",
-            "values": (request.start_date.isoformat(), request.end_date.isoformat()),
-        })
+        filters = _build_filters(
+            [
+                ("Empresas citadas", request.companies),
+                ("Produtos citados", request.products),
+                ("Estado (final)", request.states),
+                ("Mídia", request.media),
+                ("Tier", request.tiers),
+            ]
+        )
+        filters.append(_date_filter(request))
         frame = self._download_cube(
             self.client_name(request.platform_url),
             "Publicações",
@@ -472,28 +522,27 @@ class CortexHTTPGateway:
         self,
         request: MediaAnalysisExportRequest,
     ) -> list[dict]:
-        filters = _build_filters([
-            ("Empresa analisada", request.companies),
-            ("Produto analisado", request.products),
-            ("Estado (final)", request.states),
-            ("Mídia", request.media),
-            ("Tier", request.tiers),
-            ("Tipos de impactos", request.impact_types),
-            ("Sentimento", request.sentiments),
-            ("Nível de Protagonismo", request.protagonism),
-            ("Macro assunto", request.macro_subjects),
-            ("Tópicos", request.topics),
-            ("Assunto específico", request.specific_subjects),
-            ("Ação", request.communication_actions),
-            ("Origem da menção", request.mention_origins),
-            ("Jornalista", request.journalists),
-            ("Temas", request.themes),
-            ("Status classificação", request.classification_status),
-        ])
-        filters.append({
-            "name": "Data",
-            "values": (request.start_date.isoformat(), request.end_date.isoformat()),
-        })
+        filters = _build_filters(
+            [
+                ("Empresa analisada", request.companies),
+                ("Produto analisado", request.products),
+                ("Estado (final)", request.states),
+                ("Mídia", request.media),
+                ("Tier", request.tiers),
+                ("Tipos de impactos", request.impact_types),
+                ("Sentimento", request.sentiments),
+                ("Nível de Protagonismo", request.protagonism),
+                ("Macro assunto", request.macro_subjects),
+                ("Tópicos", request.topics),
+                ("Assunto específico", request.specific_subjects),
+                ("Ação", request.communication_actions),
+                ("Origem da menção", request.mention_origins),
+                ("Jornalista", request.journalists),
+                ("Temas", request.themes),
+                ("Status classificação", request.classification_status),
+            ]
+        )
+        filters.append(_date_filter(request))
         frame = self._download_cube(
             self.client_name(request.platform_url),
             "Análise de Mídia",
@@ -505,10 +554,17 @@ class CortexHTTPGateway:
 
 def _build_filters(items: list[tuple[str, list[str]]]) -> list[dict]:
     return [
-        {"name": name, "exact_match": False, "values": values}
-        for name, values in items
-        if values
+        {"name": name, "exact_match": False, "values": values} for name, values in items if values
     ]
+
+
+def _date_filter(request: DateRange) -> dict:
+    # DateRange's validator always fills both dates.
+    assert request.start_date is not None and request.end_date is not None
+    return {
+        "name": "Data",
+        "values": (request.start_date.isoformat(), request.end_date.isoformat()),
+    }
 
 
 def _records(frame: pd.DataFrame) -> list[dict]:
@@ -518,13 +574,13 @@ def _records(frame: pd.DataFrame) -> list[dict]:
     ]
 
 
-def _as_optional_str(value: object) -> str | None:
+def _as_optional_str(value: Any) -> str | None:
     if value is None or pd.isna(value):
         return None
     return str(value)
 
 
-def _clean_value(value: object) -> object | None:
+def _clean_value(value: Any) -> Any:
     if value is None or pd.isna(value):
         return None
     if hasattr(value, "item"):

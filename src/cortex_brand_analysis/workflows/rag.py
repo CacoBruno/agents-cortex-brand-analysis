@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import Protocol
+
 from cortex_brand_analysis.domain.rag import (
     KnowledgeBuildResult,
     KnowledgeDocument,
     RagAnswer,
     RagQueryRequest,
+    RetrievedChunk,
 )
 from cortex_brand_analysis.services.knowledge_index import (
     JsonlKnowledgeIndex,
@@ -13,9 +16,9 @@ from cortex_brand_analysis.services.knowledge_index import (
 )
 
 
-class RagServiceProtocol:
+class RagServiceProtocol(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
-    def answer(self, question: str, sources): ...
+    def answer(self, question: str, sources: list[RetrievedChunk]) -> RagAnswer: ...
 
 
 class KnowledgeRagWorkflow:

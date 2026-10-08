@@ -35,12 +35,10 @@ class NewsCheckWorkflow:
         platform_clipping = _matched_urls(matches, "clipping_url")
 
         missing_original = [
-            url for url in request.original_urls
-            if url_variants(url).isdisjoint(platform_original)
+            url for url in request.original_urls if url_variants(url).isdisjoint(platform_original)
         ]
         missing_clipping = [
-            url for url in request.clipping_urls
-            if url_variants(url).isdisjoint(platform_clipping)
+            url for url in request.clipping_urls if url_variants(url).isdisjoint(platform_clipping)
         ]
         missing_platform = missing_original + missing_clipping
 
@@ -53,10 +51,7 @@ class NewsCheckWorkflow:
             if original:
                 lake_urls.update(url_variants(str(original)))
 
-        missing_lake = [
-            url for url in missing_original
-            if url_variants(url).isdisjoint(lake_urls)
-        ]
+        missing_lake = [url for url in missing_original if url_variants(url).isdisjoint(lake_urls)]
 
         return NewsCheckResult(
             requested=len(request.original_urls) + len(request.clipping_urls),

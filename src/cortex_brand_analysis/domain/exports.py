@@ -53,9 +53,7 @@ class MediaAnalysisExportRequest(DateRange):
     journalists: list[str] = Field(default_factory=list)
     themes: list[str] = Field(default_factory=list)
     macro_subjects: list[str] = Field(default_factory=list)
-    classification_status: list[str] = Field(
-        default_factory=lambda: ["Classificado", "Pendente"]
-    )
+    classification_status: list[str] = Field(default_factory=lambda: ["Classificado", "Pendente"])
 
     @model_validator(mode="after")
     def require_brand(self) -> MediaAnalysisExportRequest:
