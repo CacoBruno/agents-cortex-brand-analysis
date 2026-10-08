@@ -36,7 +36,10 @@ Disponível através de `CompatibilityWorkflow`:
 - coverage patterns;
 - insights orchestration;
 - highlights;
-- charts / visualization.
+- charts / visualization;
+- delivery de insights;
+- news helpers;
+- PPT/template engine.
 
 O bridge não aceita nomes arbitrários de módulos ou funções: apenas tools registradas.
 
