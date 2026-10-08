@@ -10,6 +10,9 @@ def test_compatibility_registry_lists_source_project_capabilities():
     assert ("pattern", "build_daily_pattern_dict") in names
     assert ("visualization", "generate_chart") in names
     assert ("highlights", "generate_highlights_tool") in names
+    assert ("delivery", "generate_whatsapp_insights_message") in names
+    assert ("news", "extract_domain_from_url") in names
+    assert ("ppt", "build_slide_from_template") in names
 
 
 def test_native_indexes_are_marked_as_native():
