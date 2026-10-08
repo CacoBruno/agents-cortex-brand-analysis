@@ -6,7 +6,7 @@ from cortex_brand_analysis.domain.compatibility import (
     LegacyToolRequest,
     LegacyToolResult,
 )
-from cortex_brand_analysis.services.legacy_bridge import LEGACY_GROUP_TOOLS, invoke_tool
+from cortex_brand_analysis.services import legacy_bridge
 
 
 NATIVE_TOOLS = {
@@ -25,7 +25,7 @@ NATIVE_TOOLS = {
 class CompatibilityWorkflow:
     def capabilities(self) -> LegacyCapabilities:
         rows = []
-        for group, tools in LEGACY_GROUP_TOOLS.items():
+        for group, tools in legacy_bridge.LEGACY_GROUP_TOOLS.items():
             for tool_name in sorted(tools):
                 native = (group, tool_name) in NATIVE_TOOLS
                 rows.append(
@@ -43,7 +43,7 @@ class CompatibilityWorkflow:
         return LegacyCapabilities(capabilities=rows)
 
     def run(self, request: LegacyToolRequest) -> LegacyToolResult:
-        output = invoke_tool(
+        output = legacy_bridge.invoke_tool(
             request.group,
             request.tool_name,
             request.arguments,
