@@ -10,7 +10,8 @@ from cortex_brand_analysis.workflows.classification_review import Classification
 
 
 class FakeGateway:
-    uploaded: list[dict] | None = None
+    def __init__(self):
+        self.uploaded: list[dict] | None = None
 
     def find_classifications(self, platform_url, selectors):
         return [
