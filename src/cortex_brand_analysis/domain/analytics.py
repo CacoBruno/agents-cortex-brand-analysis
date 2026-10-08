@@ -35,6 +35,9 @@ class AnalyticsRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_operation(self) -> AnalyticsRequest:
+        if self.operation in ("groupby", "timeseries") and self.aggregation is None:
+            raise ValueError(f"{self.operation} requires aggregation")
+
         if self.operation == "groupby":
             if not self.group_by:
                 raise ValueError("groupby requires group_by")

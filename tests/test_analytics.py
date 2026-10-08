@@ -1,4 +1,8 @@
+import pytest
+from pydantic import ValidationError
+
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest
+from cortex_brand_analysis.domain.errors import DomainError
 from cortex_brand_analysis.workflows.analytics import AnalyticsWorkflow
 
 DATA = [
@@ -25,7 +29,7 @@ def test_groupby_mean():
 
 
 def test_correlation_requires_known_columns():
-    try:
+    with pytest.raises(DomainError, match="unknown columns"):
         AnalyticsWorkflow().run(
             AnalyticsRequest(
                 data=DATA,
@@ -33,10 +37,6 @@ def test_correlation_requires_known_columns():
                 columns=["valor", "missing"],
             )
         )
-    except ValueError as exc:
-        assert "unknown columns" in str(exc)
-    else:
-        raise AssertionError("expected ValueError")
 
 
 def test_timeseries_count():
@@ -50,4 +50,17 @@ def test_timeseries_count():
         )
     )
 
-    assert result.rows >= 2
+    assert result.rows == 2
+    assert [row["count"] for row in result.data] == [1, 2]
+
+
+@pytest.mark.parametrize("operation", ["groupby", "timeseries"])
+def test_metric_without_aggregation_is_rejected(operation):
+    with pytest.raises(ValidationError, match=f"{operation} requires aggregation"):
+        AnalyticsRequest(
+            data=DATA,
+            operation=operation,
+            group_by=["tema"],
+            date_column="data",
+            metric="valor",
+        )
