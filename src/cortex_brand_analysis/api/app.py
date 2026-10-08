@@ -71,6 +71,7 @@ WRITE_PATHS = {
     "/v1/news/ingestion/apply",
     "/v1/classifications/review/apply",
     "/v1/rag/build",
+    "/v1/compat/run",
 }
 
 app = FastAPI(
