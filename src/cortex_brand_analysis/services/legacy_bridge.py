@@ -66,6 +66,76 @@ LEGACY_GROUP_TOOLS: dict[str, set[str]] = {
     },
     "visualization": {"generate_chart"},
     "highlights": {"generate_highlights_tool"},
+    "delivery": {
+        "generate_meeting_script_with_llm",
+        "render_meeting_script_markdown",
+        "build_ppt_texts_llm",
+        "generate_whatsapp_insights_message",
+        "generate_coverage_insights_llm",
+    },
+    "news": {
+        "extract_domain_from_url",
+        "extrair_info_url_newspaper",
+    },
+    "ppt": {
+        "build_slide_from_template",
+        "build_slide_from_named_overrides",
+        "load_template_file",
+        "build_slide_index",
+    },
+}
+
+DIRECT_TOOL_IMPORTS = {
+    "delivery": {
+        "generate_meeting_script_with_llm": (
+            "services.insights_delivery.cs.script_insights_meeting",
+            "generate_meeting_script_with_llm",
+        ),
+        "render_meeting_script_markdown": (
+            "services.insights_delivery.cs.script_insights_meeting",
+            "render_meeting_script_markdown",
+        ),
+        "build_ppt_texts_llm": (
+            "services.insights_delivery.cs.slides_insights",
+            "build_ppt_texts_llm",
+        ),
+        "generate_whatsapp_insights_message": (
+            "services.insights_delivery.cs.whatsapp_insights",
+            "generate_whatsapp_insights_message",
+        ),
+        "generate_coverage_insights_llm": (
+            "services.insights_delivery.gens_fuctions.insights_gen",
+            "generate_coverage_insights_llm",
+        ),
+    },
+    "news": {
+        "extract_domain_from_url": (
+            "services.news_get.media_cloud",
+            "extract_domain_from_url",
+        ),
+        "extrair_info_url_newspaper": (
+            "services.news_get.news_infos_extract",
+            "extrair_info_url_newspaper",
+        ),
+    },
+    "ppt": {
+        "build_slide_from_template": (
+            "services.ppt.template_engine.builder",
+            "build_slide_from_template",
+        ),
+        "build_slide_from_named_overrides": (
+            "services.ppt.template_engine.build_slide_from_named_overrides",
+            "build_slide_from_named_overrides",
+        ),
+        "load_template_file": (
+            "services.ppt.template_engine.loader",
+            "load_template_file",
+        ),
+        "build_slide_index": (
+            "services.ppt.template_engine.loader",
+            "build_slide_index",
+        ),
+    },
 }
 
 
@@ -117,6 +187,12 @@ def _special_tools(group: str) -> list[Any]:
     if group == "highlights":
         module = importlib.import_module("src.tools_agents.highlights.tools")
         return [module.generate_highlights_tool]
+    if group in DIRECT_TOOL_IMPORTS:
+        loaded = []
+        for module_name, attribute in DIRECT_TOOL_IMPORTS[group].values():
+            module = importlib.import_module(module_name)
+            loaded.append(getattr(module, attribute))
+        return loaded
     return []
 
 
@@ -127,7 +203,7 @@ def load_tool(group: str, tool_name: str) -> Any:
 
     tools = (
         _special_tools(group)
-        if group in {"visualization", "highlights"}
+        if group in {"visualization", "highlights", "delivery", "news", "ppt"}
         else _registry_tools(group)
     )
     for tool in tools:
