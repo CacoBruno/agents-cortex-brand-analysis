@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pandas as pd
 
-from cortex_brand_analysis.domain.analytics import AnalyticsFilter, AnalyticsRequest, AnalyticsResult
+from cortex_brand_analysis.domain.analytics import (
+    AnalyticsFilter,
+    AnalyticsRequest,
+    AnalyticsResult,
+)
 
 
 def _validate_columns(df: pd.DataFrame, columns: list[str]) -> None:
@@ -82,7 +86,11 @@ class AnalyticsWorkflow:
         if request.operation == "groupby":
             _validate_columns(df, request.group_by)
             if request.aggregation == "count":
-                result = df.groupby(request.group_by, dropna=False).size().reset_index(name="count")
+                result = (
+                    df.groupby(request.group_by, dropna=False)
+                    .size()
+                    .reset_index(name="count")
+                )
             else:
                 assert request.metric is not None
                 _validate_columns(df, [request.metric])
@@ -110,7 +118,10 @@ class AnalyticsWorkflow:
             assert request.date_column is not None
             _validate_columns(df, [request.date_column])
             work = df.copy()
-            work[request.date_column] = pd.to_datetime(work[request.date_column], errors="coerce")
+            work[request.date_column] = pd.to_datetime(
+                work[request.date_column],
+                errors="coerce",
+            )
             work = work.dropna(subset=[request.date_column]).set_index(request.date_column)
 
             if request.aggregation == "count":
@@ -119,7 +130,11 @@ class AnalyticsWorkflow:
                 assert request.metric is not None
                 _validate_columns(work, [request.metric])
                 numeric = pd.to_numeric(work[request.metric], errors="coerce")
-                result = getattr(numeric.resample(request.frequency), request.aggregation)().reset_index()
+                aggregated = getattr(
+                    numeric.resample(request.frequency),
+                    request.aggregation,
+                )()
+                result = aggregated.reset_index()
 
             return AnalyticsResult(
                 operation=request.operation,
