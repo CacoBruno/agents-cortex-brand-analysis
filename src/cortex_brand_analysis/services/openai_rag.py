@@ -29,7 +29,7 @@ class OpenAIRagService:
             for item in sources
         )
         response = client.responses.create(
-            model="gpt-4o-mini",
+            model="gpt-6-luna",
             input=[
                 {
                     "role": "system",
