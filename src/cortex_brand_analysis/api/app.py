@@ -15,6 +15,12 @@ from fastapi.responses import JSONResponse
 from cortex_brand_analysis.config import get_settings
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest, AnalyticsResult
 from cortex_brand_analysis.domain.audit import AuditRun, AuditRunList
+from cortex_brand_analysis.domain.classification import (
+    ClassificationApplyRequest,
+    ClassificationApplyResult,
+    ClassificationReviewPreview,
+    ClassificationReviewRequest,
+)
 from cortex_brand_analysis.domain.communication_indexes import (
     CommunicationIndexRequest,
     CommunicationIndexResult,
@@ -23,12 +29,6 @@ from cortex_brand_analysis.domain.compatibility import (
     LegacyCapabilities,
     LegacyToolRequest,
     LegacyToolResult,
-)
-from cortex_brand_analysis.domain.classification import (
-    ClassificationApplyRequest,
-    ClassificationApplyResult,
-    ClassificationReviewPreview,
-    ClassificationReviewRequest,
 )
 from cortex_brand_analysis.domain.errors import ConfigurationError, DomainError, UpstreamError
 from cortex_brand_analysis.domain.exports import (
