@@ -37,6 +37,7 @@ from cortex_brand_analysis.domain.exports import (
     PublicationExportRequest,
 )
 from cortex_brand_analysis.domain.models import HealthResponse, NewsCheckRequest, NewsCheckResult
+from cortex_brand_analysis.domain.nlp import NlpRequest, NlpResult
 from cortex_brand_analysis.domain.news_ingestion import (
     NewsIngestionApplyRequest,
     NewsIngestionApplyResult,
@@ -62,6 +63,7 @@ from cortex_brand_analysis.workflows.compatibility import CompatibilityWorkflow
 from cortex_brand_analysis.workflows.exports import ExportWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
 from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
+from cortex_brand_analysis.workflows.nlp import NlpWorkflow
 from cortex_brand_analysis.workflows.rag import KnowledgeRagWorkflow
 
 logger = logging.getLogger(__name__)
@@ -195,6 +197,10 @@ def get_analytics_workflow() -> AnalyticsWorkflow:
 
 def get_communication_indexes_workflow() -> CommunicationIndexesWorkflow:
     return CommunicationIndexesWorkflow()
+
+
+def get_nlp_workflow() -> NlpWorkflow:
+    return NlpWorkflow()
 
 
 def get_compatibility_workflow() -> CompatibilityWorkflow:
@@ -391,4 +397,16 @@ def run_legacy_capability(
     request: LegacyToolRequest,
     workflow: CompatibilityWorkflow = Depends(get_compatibility_workflow),
 ) -> LegacyToolResult:
+    return workflow.run(request)
+
+
+@app.post(
+    "/v1/nlp/run",
+    response_model=NlpResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def run_nlp(
+    request: NlpRequest,
+    workflow: NlpWorkflow = Depends(get_nlp_workflow),
+) -> NlpResult:
     return workflow.run(request)
