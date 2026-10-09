@@ -28,6 +28,14 @@ cortex-brand-legacy-pria = "cortex_brand_analysis.compat_entrypoints:run_legacy_
 ai = [
   "openai>=1.50,<2"
 ]
+nlp = [
+  "numpy>=1.26,<3",
+  "scikit-learn>=1.5,<2",
+  "nltk>=3.9,<4",
+  "sentence-transformers>=3,<4",
+  "torch>=2.4,<3",
+  "tqdm>=4.67,<5"
+]
 legacy = [
   "langchain>=0.3,<0.4",
   "langchain-core>=0.3,<0.4",
