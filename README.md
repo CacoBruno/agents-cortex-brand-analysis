@@ -1,6 +1,6 @@
 # Agents Cortex Brand Analysis
 
-Refatoração do projeto `mcp-pr-tools-ai` para uma arquitetura segura, testável e auditável de automações e agentes para análise de marca da Cortex.
+Refatoração e integração do projeto `cortex-brand-ai-tools` para uma arquitetura segura, testável e auditável de automações e agentes para análise de marca da Cortex.
 
 ## Status
 
@@ -12,7 +12,7 @@ API (FastAPI)
  -> Adapters (Cortex HTTP, OpenAI, S3, índice JSONL)
 ```
 
-O repositório antigo permanece como referência funcional durante a migração.
+O repositório `CacoBruno/cortex-brand-ai-tools` é a fonte funcional principal da migração.
 Os agentes LLM (`agents/`) ainda não foram implementados; veja
 [docs/architecture.md](docs/architecture.md).
 
@@ -335,3 +335,122 @@ GET /v1/audit/runs?limit=100
 
 A rota é protegida pela mesma API key e retorna primeiro as execuções mais recentes.
 O limite máximo é 500 registros.
+
+
+## Fonte funcional correta
+
+A integração agora usa como fonte principal:
+
+```text
+CacoBruno/cortex-brand-ai-tools
+```
+
+O projeto `mcp-pr-tools-ai` foi usado inicialmente por engano e permanece apenas
+como referência histórica para alguns fluxos já migrados.
+
+O plano detalhado está em:
+
+```text
+docs/cortex_brand_ai_tools_integration.md
+```
+
+### Índices de comunicação
+
+Primeiro bloco migrado do projeto correto:
+
+```text
+POST /v1/indexes/communication
+```
+
+Operações:
+- `nps`;
+- `nps_contribution`;
+- `protagonism`;
+- `frequency`;
+- `valoration`;
+- `journalist`;
+- `action`.
+
+Esses cálculos foram portados das funções de
+`services/index_function.py`, mas recebem dados explicitamente no request, sem
+depender do `DATAFRAME_STORE` global do projeto original.
+
+
+## Migração completa do cortex-brand-ai-tools
+
+O projeto original completo está preservado de duas formas:
+
+```text
+legacy/cortex_brand_ai_tools/
+```
+
+contém um snapshot dos 149 arquivos Python do runtime; e:
+
+```text
+legacy/cortex-brand-ai-tools-source
+```
+
+é um submodule Git apontando para o repositório original completo, incluindo templates PPTX,
+imagens, notebooks e bases de exemplo.
+
+Depois de clonar esta branch, inicialize o submodule com:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Instalação do runtime completo
+
+Core + OpenAI + desenvolvimento:
+
+```bash
+pip install -e ".[ai,dev]"
+```
+
+Compatibilidade LangChain/MCP/PPT/visualização:
+
+```bash
+pip install -e ".[ai,dev,legacy]"
+```
+
+Compatibilidade completa com NLP/clustering pesado:
+
+```bash
+pip install -e ".[ai,dev,legacy,legacy-ml]"
+```
+
+### Compatibilidade controlada
+
+Listar as capabilities preservadas:
+
+```text
+GET /v1/compat/capabilities
+```
+
+Executar uma capability allow-listed:
+
+```text
+POST /v1/compat/run
+```
+
+O endpoint não permite importar ou executar funções arbitrárias. Só tools registradas
+no mapa de compatibilidade podem ser chamadas.
+
+### PRIA e MCP originais
+
+Com o extra `legacy` instalado:
+
+```bash
+cortex-brand-legacy-pria
+cortex-brand-legacy-mcp
+```
+
+Esses comandos usam a implementação original preservada, enquanto a versão v2 nativa
+continua sendo promovida por workflow.
+
+Veja também:
+
+```text
+docs/migration_status.md
+docs/cortex_brand_ai_tools_integration.md
+```

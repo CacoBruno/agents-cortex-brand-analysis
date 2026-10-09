@@ -1,0 +1,3 @@
+[submodule "legacy/cortex-brand-ai-tools-source"]
+	path = legacy/cortex-brand-ai-tools-source
+	url = https://github.com/CacoBruno/cortex-brand-ai-tools.git

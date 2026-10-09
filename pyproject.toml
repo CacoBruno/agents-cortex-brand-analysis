@@ -20,9 +20,51 @@ dependencies = [
   "boto3>=1.35,<2"
 ]
 
+[project.scripts]
+cortex-brand-legacy-mcp = "cortex_brand_analysis.compat_entrypoints:run_legacy_mcp"
+cortex-brand-legacy-pria = "cortex_brand_analysis.compat_entrypoints:run_legacy_pria"
+
 [project.optional-dependencies]
 ai = [
   "openai>=1.50,<2"
+]
+nlp = [
+  "numpy>=1.26,<3",
+  "scikit-learn>=1.5,<2",
+  "nltk>=3.9,<4",
+  "sentence-transformers>=3,<4",
+  "torch>=2.4,<3",
+  "tqdm>=4.67,<5"
+]
+legacy = [
+  "langchain>=0.3,<0.4",
+  "langchain-core>=0.3,<0.4",
+  "langchain-openai>=0.3,<0.4",
+  "langchain-community>=0.3,<0.4",
+  "langgraph>=0.2,<0.3",
+  "langgraph-checkpoint-sqlite>=3,<4",
+  "fastmcp>=3,<4",
+  "matplotlib>=3.9,<4",
+  "seaborn>=0.13,<1",
+  "numpy>=1.26,<3",
+  "scikit-learn>=1.5,<2",
+  "requests>=2.32,<3",
+  "unidecode>=1.4,<2",
+  "tqdm>=4.67,<5",
+  "lxml>=5,<6",
+  "lxml-html-clean>=0.4,<1",
+  "newspaper3k>=0.2,<1",
+  "python-pptx>=1,<2"
+]
+legacy-ml = [
+  "nltk>=3.9,<4",
+  "transformers>=4.44,<5",
+  "sentence-transformers>=3,<4",
+  "spacy>=3.7,<4",
+  "factor-analyzer>=0.5,<1",
+  "torch>=2.4,<3",
+  "keras>=3.3,<4",
+  "tensorflow>=2.16,<3"
 ]
 dev = [
   "pytest>=8.3,<9",
@@ -43,6 +85,7 @@ addopts = "-q --disable-warnings --maxfail=1"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["legacy"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]

@@ -21,6 +21,15 @@ from cortex_brand_analysis.domain.classification import (
     ClassificationReviewPreview,
     ClassificationReviewRequest,
 )
+from cortex_brand_analysis.domain.communication_indexes import (
+    CommunicationIndexRequest,
+    CommunicationIndexResult,
+)
+from cortex_brand_analysis.domain.compatibility import (
+    LegacyCapabilities,
+    LegacyToolRequest,
+    LegacyToolResult,
+)
 from cortex_brand_analysis.domain.errors import ConfigurationError, DomainError, UpstreamError
 from cortex_brand_analysis.domain.exports import (
     ExportResult,
@@ -28,6 +37,7 @@ from cortex_brand_analysis.domain.exports import (
     PublicationExportRequest,
 )
 from cortex_brand_analysis.domain.models import HealthResponse, NewsCheckRequest, NewsCheckResult
+from cortex_brand_analysis.domain.nlp import NlpRequest, NlpResult
 from cortex_brand_analysis.domain.news_ingestion import (
     NewsIngestionApplyRequest,
     NewsIngestionApplyResult,
@@ -48,9 +58,12 @@ from cortex_brand_analysis.services.openai_rag import OpenAIRagService
 from cortex_brand_analysis.services.s3_storage import S3NewsStorage
 from cortex_brand_analysis.workflows.analytics import AnalyticsWorkflow
 from cortex_brand_analysis.workflows.classification_review import ClassificationReviewWorkflow
+from cortex_brand_analysis.workflows.communication_indexes import CommunicationIndexesWorkflow
+from cortex_brand_analysis.workflows.compatibility import CompatibilityWorkflow
 from cortex_brand_analysis.workflows.exports import ExportWorkflow
 from cortex_brand_analysis.workflows.news_check import NewsCheckWorkflow
 from cortex_brand_analysis.workflows.news_ingestion import NewsIngestionWorkflow
+from cortex_brand_analysis.workflows.nlp import NlpWorkflow
 from cortex_brand_analysis.workflows.rag import KnowledgeRagWorkflow
 
 logger = logging.getLogger(__name__)
@@ -60,6 +73,7 @@ WRITE_PATHS = {
     "/v1/news/ingestion/apply",
     "/v1/classifications/review/apply",
     "/v1/rag/build",
+    "/v1/compat/run",
 }
 
 app = FastAPI(
@@ -179,6 +193,18 @@ def get_classification_workflow() -> ClassificationReviewWorkflow:
 
 def get_analytics_workflow() -> AnalyticsWorkflow:
     return AnalyticsWorkflow()
+
+
+def get_communication_indexes_workflow() -> CommunicationIndexesWorkflow:
+    return CommunicationIndexesWorkflow()
+
+
+def get_nlp_workflow() -> NlpWorkflow:
+    return NlpWorkflow()
+
+
+def get_compatibility_workflow() -> CompatibilityWorkflow:
+    return CompatibilityWorkflow()
 
 
 def get_export_workflow() -> ExportWorkflow:
@@ -335,3 +361,52 @@ def run_analytics(
 def list_audit_runs(limit: int = 100) -> AuditRunList:
     bounded_limit = max(1, min(limit, 500))
     return AuditRunList(runs=audit_store.list_runs(limit=bounded_limit))
+
+
+@app.post(
+    "/v1/indexes/communication",
+    response_model=CommunicationIndexResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def run_communication_index(
+    request: CommunicationIndexRequest,
+    workflow: CommunicationIndexesWorkflow = Depends(
+        get_communication_indexes_workflow
+    ),
+) -> CommunicationIndexResult:
+    return workflow.run(request)
+
+
+@app.get(
+    "/v1/compat/capabilities",
+    response_model=LegacyCapabilities,
+    dependencies=[Depends(verify_api_key)],
+)
+def list_legacy_capabilities(
+    workflow: CompatibilityWorkflow = Depends(get_compatibility_workflow),
+) -> LegacyCapabilities:
+    return workflow.capabilities()
+
+
+@app.post(
+    "/v1/compat/run",
+    response_model=LegacyToolResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def run_legacy_capability(
+    request: LegacyToolRequest,
+    workflow: CompatibilityWorkflow = Depends(get_compatibility_workflow),
+) -> LegacyToolResult:
+    return workflow.run(request)
+
+
+@app.post(
+    "/v1/nlp/run",
+    response_model=NlpResult,
+    dependencies=[Depends(verify_api_key)],
+)
+def run_nlp(
+    request: NlpRequest,
+    workflow: NlpWorkflow = Depends(get_nlp_workflow),
+) -> NlpResult:
+    return workflow.run(request)
