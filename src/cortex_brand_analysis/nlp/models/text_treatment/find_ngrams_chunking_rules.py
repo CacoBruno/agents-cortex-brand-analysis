@@ -2,13 +2,13 @@ from nltk import FreqDist, RegexpParser, Tree, pos_tag
 from nltk.util import ngrams
 
 rules = [
-    "Bigram Rule: {<J.*|VB.*><NN|NNS>}",  
+    "Bigram Rule: {<J.*|VB.*><NN|NNS>}",
     # Adjectives or Verbs followed by Nouns
-    "Bigram Rule: {<VB.*><J.*|VB.*>}",  
+    "Bigram Rule: {<VB.*><J.*|VB.*>}",
     # Verbs followed by Verbs or Adjectives
-    "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}",  
+    "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}",
     # Adjectives/Nouns followed by Adajectives or Nouns
-    "Bigram Rule: {<NN><NNS>}",  
+    "Bigram Rule: {<NN><NNS>}",
     # Nouns and Nouns
     "Bigram Rule: {<NNP|NNPS><NNP|NNPS>}",
     "Trigram Rule: {<V.*|JJ.*|NN.*><DT|NN.*|V.*|IN.*><NN.*>}",
@@ -44,14 +44,14 @@ def n_grams_validator(df, column, gram):
     # ====================================
 
     bigram_rules = [
-        "Bigram Rule: {<J.*|VB.*><NN|NNS>}", 
-          # Adjectives or Verbs followed by Nouns
-        "Bigram Rule: {<VB.*><J.*|VB.*>}", 
-          # Verbs followed by Verbs or Adjectives
-        "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}", 
-          # Adjectives/Nouns followed by Adajectives or Nouns
-        "Bigram Rule: {<NN><NNS>}", 
-          # Nouns and Nouns
+        "Bigram Rule: {<J.*|VB.*><NN|NNS>}",
+        # Adjectives or Verbs followed by Nouns
+        "Bigram Rule: {<VB.*><J.*|VB.*>}",
+        # Verbs followed by Verbs or Adjectives
+        "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}",
+        # Adjectives/Nouns followed by Adajectives or Nouns
+        "Bigram Rule: {<NN><NNS>}",
+        # Nouns and Nouns
         "Bigram Rule: {<NNP|NNPS><NNP|NNPS>}",
     ]
 

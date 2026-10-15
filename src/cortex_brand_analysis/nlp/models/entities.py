@@ -537,8 +537,6 @@ def extrair_contexto_noticias(
     return resultado_final
 
 
-
-
 def deduplicar_frases_simples(frases, min_chars=30):
     vistas = set()
     resultado = []

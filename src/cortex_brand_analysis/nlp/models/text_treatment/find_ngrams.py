@@ -115,7 +115,7 @@ def get_most_important_ngrams(list_of_texts, ngrams_config):
 
 
 def get_most_important_collocations(list_of_texts, language, percentual=0.01):
-    """Search for the most important ngrams selected by collocations 
+    """Search for the most important ngrams selected by collocations
     (expressions of multiple words which commonly co-occur)
 
     Args:

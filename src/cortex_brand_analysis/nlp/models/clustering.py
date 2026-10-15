@@ -16,8 +16,6 @@ from cortex_brand_analysis.nlp.models.summarize import resumo_extrativo
 _model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
-
-
 def closest_cluster_ids(df, n=10) -> dict:
 
     if "titulo_da_publicacao" in df.columns:
@@ -372,9 +370,9 @@ def similaridade_cluster_fast(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     if id_col is None:
         raise KeyError(
-                "Não encontrei coluna identificadora: "
-                "'Chave Análise de Mídia Hash', 'cortex_id' ou 'ID Cortex'."
-            )
+            "Não encontrei coluna identificadora: "
+            "'Chave Análise de Mídia Hash', 'cortex_id' ou 'ID Cortex'."
+        )
 
     sort_cols = [alcance] if alcance else None
 
@@ -675,9 +673,9 @@ def daily_cluster_similaridade_parallel(
 
         if "cluster_id" in all_results.columns:
             print(
-                    "Clusters globais únicos (coluna 'cluster_id'): "
-                    f"{all_results['cluster_id'].nunique()}"
-                )
+                "Clusters globais únicos (coluna 'cluster_id'): "
+                f"{all_results['cluster_id'].nunique()}"
+            )
 
         if "cluster_hash" in all_results.columns:
             print(f"Hashes únicos (coluna 'cluster_hash'): {all_results['cluster_hash'].nunique()}")

@@ -107,11 +107,11 @@ def normalizar_temas_similares(
     resultado : dict
         Ex:
         {
-            "C33695845": {"resumo": "...", 
-            "tema": "Liquidação do Banco Master", 
+            "C33695845": {"resumo": "...",
+            "tema": "Liquidação do Banco Master",
             "macrotema": "..."},
-            "C27743667": {"resumo": "...", 
-            "tema": "Banco Master é liquidado", 
+            "C27743667": {"resumo": "...",
+            "tema": "Banco Master é liquidado",
             "macrotema": "..."},
         }
 

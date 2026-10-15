@@ -584,7 +584,7 @@ class ThemeClassifierWithFocusService:
         contents = df[text_col_content].fillna("").astype(str).tolist()
 
         full_texts = [
-            self._truncate_text(f"{t} {c}", max_chars=2000) 
+            self._truncate_text(f"{t} {c}", max_chars=2000)
             for t, c in zip(titles, contents, strict=True)
         ]
 
