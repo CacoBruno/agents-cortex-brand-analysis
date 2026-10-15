@@ -179,6 +179,7 @@ def _registry_tools(group: str) -> list[Any]:
     registry = importlib.import_module("src.mcp_server.registry")
     tools = registry.get_langchain_tools(groups=[group])
     return cast(list[Any], tools)
+    
 
 
 def _special_tools(group: str) -> list[Any]:
