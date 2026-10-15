@@ -108,3 +108,8 @@ exclude = [
 "src/cortex_brand_analysis/nlp/models/sentiment_analysis/pt_words.py" = ["B018"]
 "src/cortex_brand_analysis/nlp/models/sentiment_analysis/pt_expressions.py" = ["B018"]
 "src/cortex_brand_analysis/nlp/models/text_treatment/emojis_unicodes.py" = ["E501"]
+
+[tool.coverage.run]
+omit = [
+  "src/cortex_brand_analysis/nlp/models/*",
+]
