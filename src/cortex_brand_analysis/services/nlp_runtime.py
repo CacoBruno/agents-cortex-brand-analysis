@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
+import json
+from typing import Any, cast
 
 import pandas as pd
 
 from cortex_brand_analysis.domain.nlp import NlpRequest, NlpResult
 
 
-def _records(df: pd.DataFrame) -> list[dict]:
-    return df.where(pd.notna(df), None).to_dict(orient="records")
+def _records(df: pd.DataFrame) -> list[dict[str, Any]]:
+    payload = json.loads(df.to_json(orient="records", date_format="iso"))
+    return cast(list[dict[str, Any]], payload)
 
 
 def _resolve_column(df: pd.DataFrame, preferred: str, alternatives: list[str]) -> str:

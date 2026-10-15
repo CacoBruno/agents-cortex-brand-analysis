@@ -864,7 +864,7 @@ def identify_entities_in_dataframe(
     content_col: str = "conteudo",
     output_col: str = "entidade_encontrada",
     split_output: bool = True,
-    hash_columns: list = None,
+    hash_columns: list[Any] | None = None,
 ) -> pd.DataFrame:
     """
     Procura termos nas colunas de título e conteúdo, retorna a KEY do dicionário,

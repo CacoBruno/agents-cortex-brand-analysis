@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from typing import Any, cast
+
 import pandas as pd
 
 from cortex_brand_analysis.domain.communication_indexes import (
@@ -14,9 +17,9 @@ def _validate(df: pd.DataFrame, columns: list[str]) -> None:
         raise ValueError(f"unknown columns: {missing}")
 
 
-def _records(df: pd.DataFrame) -> list[dict]:
-    clean = df.where(pd.notna(df), None)
-    return clean.to_dict(orient="records")
+def _records(df: pd.DataFrame) -> list[dict[str, Any]]:
+    payload = json.loads(df.to_json(orient="records", date_format="iso"))
+    return cast(list[dict[str, Any]], payload)
 
 
 class CommunicationIndexesWorkflow:

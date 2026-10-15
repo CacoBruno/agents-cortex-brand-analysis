@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -166,17 +166,19 @@ def save_input_dataframe(data: list[dict]) -> str:
     ensure_legacy_on_path()
     module = importlib.import_module("core.dataframe_store")
     frame = pd.DataFrame(data)
-    return module.save_dataframe(
+    result = module.save_dataframe(
         frame,
         source="v2_compat_request",
         filters={"origin": "compatibility_bridge"},
     )
+    return cast(str, result)
 
 
 def _registry_tools(group: str) -> list[Any]:
     ensure_legacy_on_path()
     registry = importlib.import_module("src.mcp_server.registry")
-    return registry.get_langchain_tools(groups=[group])
+    tools = registry.get_langchain_tools(groups=[group])
+    return cast(list[Any], tools)
 
 
 def _special_tools(group: str) -> list[Any]:
