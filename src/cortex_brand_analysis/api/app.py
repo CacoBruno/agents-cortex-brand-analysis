@@ -37,13 +37,13 @@ from cortex_brand_analysis.domain.exports import (
     PublicationExportRequest,
 )
 from cortex_brand_analysis.domain.models import HealthResponse, NewsCheckRequest, NewsCheckResult
-from cortex_brand_analysis.domain.nlp import NlpRequest, NlpResult
 from cortex_brand_analysis.domain.news_ingestion import (
     NewsIngestionApplyRequest,
     NewsIngestionApplyResult,
     NewsIngestionPreview,
     NewsIngestionRequest,
 )
+from cortex_brand_analysis.domain.nlp import NlpRequest, NlpResult
 from cortex_brand_analysis.domain.rag import (
     KnowledgeBuildResult,
     KnowledgeDocument,
@@ -370,9 +370,7 @@ def list_audit_runs(limit: int = 100) -> AuditRunList:
 )
 def run_communication_index(
     request: CommunicationIndexRequest,
-    workflow: CommunicationIndexesWorkflow = Depends(
-        get_communication_indexes_workflow
-    ),
+    workflow: CommunicationIndexesWorkflow = Depends(get_communication_indexes_workflow),
 ) -> CommunicationIndexResult:
     return workflow.run(request)
 

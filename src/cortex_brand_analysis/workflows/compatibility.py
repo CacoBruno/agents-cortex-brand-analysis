@@ -8,7 +8,6 @@ from cortex_brand_analysis.domain.compatibility import (
 )
 from cortex_brand_analysis.services import legacy_bridge
 
-
 NATIVE_TOOLS = {
     ("platform", "export_publications_database"),
     ("platform", "export_media_analysis_database"),

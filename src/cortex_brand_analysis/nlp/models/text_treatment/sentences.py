@@ -1,5 +1,6 @@
-import nltk
 import string
+
+import nltk
 
 
 def break_into_sentences(content_dict, first_letter_to_lower=True):
@@ -10,9 +11,7 @@ def break_into_sentences(content_dict, first_letter_to_lower=True):
     """
     if first_letter_to_lower:
         sentences_dict = {
-            str((kp, ks + 1)): fill_empty_string(
-                remove_punct(_fix_sentence_case(sentence))
-            )
+            str((kp, ks + 1)): fill_empty_string(remove_punct(_fix_sentence_case(sentence)))
             for kp, paragraph in content_dict.items()
             for ks, sentence in enumerate(nltk.tokenize.sent_tokenize(paragraph))
         }
@@ -47,10 +46,7 @@ def _fix_sentence_case(sentence):
 
 def tag_words_in_sentences(sentences, tagger):
     """ """
-    return {
-        k: tagger.tag(nltk.tokenize.word_tokenize(sentence))
-        for k, sentence in sentences
-    }
+    return {k: tagger.tag(nltk.tokenize.word_tokenize(sentence)) for k, sentence in sentences}
 
 
 if __name__ == "__main__":

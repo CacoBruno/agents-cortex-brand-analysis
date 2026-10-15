@@ -1,12 +1,15 @@
+from nltk import FreqDist, RegexpParser, Tree, pos_tag
 from nltk.util import ngrams
-from nltk import pos_tag, FreqDist, RegexpParser, Tree
-
 
 rules = [
-    "Bigram Rule: {<J.*|VB.*><NN|NNS>}",  # Adjectives or Verbs followed by Nouns
-    "Bigram Rule: {<VB.*><J.*|VB.*>}",  # Verbs followed by Verbs or Adjectives
-    "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}",  # Adjectives/Nouns followed by Adajectives or Nouns
-    "Bigram Rule: {<NN><NNS>}",  # Nouns and Nouns
+    "Bigram Rule: {<J.*|VB.*><NN|NNS>}",  
+    # Adjectives or Verbs followed by Nouns
+    "Bigram Rule: {<VB.*><J.*|VB.*>}",  
+    # Verbs followed by Verbs or Adjectives
+    "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}",  
+    # Adjectives/Nouns followed by Adajectives or Nouns
+    "Bigram Rule: {<NN><NNS>}",  
+    # Nouns and Nouns
     "Bigram Rule: {<NNP|NNPS><NNP|NNPS>}",
     "Trigram Rule: {<V.*|JJ.*|NN.*><DT|NN.*|V.*|IN.*><NN.*>}",
     "Quadrigram Rule: {<VB.*|NN.*><DT|V.*|NN.*><NN.*|DT><NN.*>}",
@@ -21,7 +24,6 @@ rules = [
 
 
 def n_grams_validator(df, column, gram):
-
     """Creates from a cleaned text the most relevant n-grams
     Args:
         df (Dataframe):  Dataframe
@@ -42,10 +44,14 @@ def n_grams_validator(df, column, gram):
     # ====================================
 
     bigram_rules = [
-        "Bigram Rule: {<J.*|VB.*><NN|NNS>}",  # Adjectives or Verbs followed by Nouns
-        "Bigram Rule: {<VB.*><J.*|VB.*>}",  # Verbs followed by Verbs or Adjectives
-        "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}",  # Adjectives/Nouns followed by Adajectives or Nouns
-        "Bigram Rule: {<NN><NNS>}",  # Nouns and Nouns
+        "Bigram Rule: {<J.*|VB.*><NN|NNS>}", 
+          # Adjectives or Verbs followed by Nouns
+        "Bigram Rule: {<VB.*><J.*|VB.*>}", 
+          # Verbs followed by Verbs or Adjectives
+        "Bigram Rule: {<JJ.*|NN|NNS><JJ.*|NN|NNS>}", 
+          # Adjectives/Nouns followed by Adajectives or Nouns
+        "Bigram Rule: {<NN><NNS>}", 
+          # Nouns and Nouns
         "Bigram Rule: {<NNP|NNPS><NNP|NNPS>}",
     ]
 
@@ -80,11 +86,7 @@ def n_grams_validator(df, column, gram):
         tags = pos_tag(words)
         word_grams = ngrams(tags, gram)
         most_common = FreqDist(word_grams)
-        [
-            most_common_grams.add(pair)
-            for (pair, count) in most_common.items()
-            if count > 3
-        ]
+        [most_common_grams.add(pair) for (pair, count) in most_common.items() if count > 3]
 
     # ================================================
     # Analyze tagged words based on n-gram rules
@@ -96,8 +98,8 @@ def n_grams_validator(df, column, gram):
             for leaf in tree:
                 if isinstance(leaf, Tree):
                     join_words = [node[0] for node in leaf]
-                    validated_ngrams[str(" ".join(join_words))] = "_".join(
-                        join_words
-                    ).replace("__", "_")
+                    validated_ngrams[str(" ".join(join_words))] = "_".join(join_words).replace(
+                        "__", "_"
+                    )
 
     return validated_ngrams

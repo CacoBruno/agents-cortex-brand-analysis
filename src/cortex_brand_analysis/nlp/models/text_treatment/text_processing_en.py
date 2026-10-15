@@ -1,8 +1,8 @@
-""" Performs text transformation in English Idiom """
-
+"""Performs text transformation in English Idiom"""
 
 #### Setup ####
 import re
+
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -189,13 +189,9 @@ PERSONALIZED_STOPWORDS = set(
         "won't",
         "wouldn",
         "wouldn't",
-        "there",
-        "and",
         "isn’t",
-        "are",
         "and/or",
         "_and_",
-        "s",
     }
 )
 
@@ -211,9 +207,7 @@ date_full = re.compile(
     \bdec)+[\w]*)[\s\,\.\d]*[\s\W]*\d{1,4}(th|nd|st|rd)?"
 )
 date_day = re.compile(r"\d+\s?(days|day)")
-date_in = re.compile(
-    r"(in|on|of|from|to|till|between|and|at|since)\s?(\d{4}|_date_full_)"
-)
+date_in = re.compile(r"(in|on|of|from|to|till|between|and|at|since)\s?(\d{4}|_date_full_)")
 full_numeric_date = re.compile(r"\d{2}[\-\/\s\.]\d{2}[\-\/\-\.]\d{2,4}")
 hours_am_pm = re.compile(r"[\d\:]+\s?(am|pm)")
 hours_numbers = re.compile(r"\d{1,2}:\d{1,2}:\d+")
@@ -222,15 +216,12 @@ measurements = re.compile(
     gb|km|tonnes|tonnes|ton|oz|mm|g\/m|kilowatts|kilowatt|megawatts|megawatt|kg|k|million tons \
     |million ton|m2|m3)"
 )
-telephone = re.compile(
-    r"(call|tel|phone|telephone)\s?[\+\-\s]\d+[\+\-\,\.\-\d]+")
+telephone = re.compile(r"(call|tel|phone|telephone)\s?[\+\-\s]\d+[\+\-\,\.\-\d]+")
 money = re.compile(
     r"(us|us\$|\$|\£|\$\s|us\$|us\$|usd|€|\s)+\d+[.,\d+\s]\d*\s*(dollars|dollar|mi|bi|tri|quadri)+(llion\b|llions\b)?"
 )
-money_numbers = re.compile(
-    r"(us|us\$|\$|\£|\$\s|us\$|us\$|usd|€)\d+[\.\,]*\d*(bn|m)?")
-percentuals = re.compile(
-    r"\d+[^\w]?\d*[^\w]?(\%|percentual|percent|percent| per cent)")
+money_numbers = re.compile(r"(us|us\$|\$|\£|\$\s|us\$|us\$|usd|€)\d+[\.\,]*\d*(bn|m)?")
+percentuals = re.compile(r"\d+[^\w]?\d*[^\w]?(\%|percentual|percent|percent| per cent)")
 square_foot = re.compile(
     r"\s+\d+[\.\,]*\d*(-acre|acre|-square-foot|square-foot|-square foot|square foot)"
 )
@@ -256,7 +247,7 @@ STOPWORDS = stopwords.words("english")
 
 
 def _get_stopwords():
-    """ Access the stopwords in English
+    """Access the stopwords in English
 
     Returns:
         [set]: Stopwords
@@ -266,7 +257,7 @@ def _get_stopwords():
 
 
 def remove_stopwords(string):
-    """ Remove all stopwords words (link words that generally don't add value to the text)
+    """Remove all stopwords words (link words that generally don't add value to the text)
 
     Args:
         string (str)
@@ -279,7 +270,7 @@ def remove_stopwords(string):
 
 
 def remove_punctuation(string):
-    """ Removes all punctuation variations defined in regex
+    """Removes all punctuation variations defined in regex
 
     Args:
         string (str)
@@ -324,7 +315,7 @@ def remove_punctuation(string):
 
 
 def remove_length_1_tokens(string):
-    """ Removes tokens with size less than 2
+    """Removes tokens with size less than 2
 
     Args:
         string (str)
@@ -347,5 +338,5 @@ def text_lemmatizer(string):
     lemmatizer = WordNetLemmatizer()
     tokens = [w for w in string.split()]
     lemmatized = [lemmatizer.lemmatize(w) for w in tokens]
-    
+
     return " ".join(lemmatized)

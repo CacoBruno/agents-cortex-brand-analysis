@@ -1,6 +1,7 @@
 import re
-from typing import List, Union
+
 from summa import summarizer
+
 
 def resumo_extrativo(
     texto: str,
@@ -9,7 +10,7 @@ def resumo_extrativo(
     max_sentencas: int = 20,
     retorno_lista: bool = False,
     linguagem: str = "portuguese",
-) -> Union[str, List[str]]:
+) -> str | list[str]:
     """
     Gera um resumo extrativo em PT-BR usando TextRank (summa.summarizer).
 
@@ -35,7 +36,7 @@ def resumo_extrativo(
     texto = re.sub(r"\s+", " ", texto).strip()
 
     # Split simples de sentenças para regras de fallback
-    def _split_sentencas(t: str) -> List[str]:
+    def _split_sentencas(t: str) -> list[str]:
         # separa em ., !, ?, … e mantém pontuação
         sent = re.split(r"(?<=[\.\?\!…])\s+", t)
         # remove vazias e tira espaços extras
@@ -54,7 +55,6 @@ def resumo_extrativo(
     proporcao = max(0.05, min(0.9, float(proporcao)))
     min_sentencas = max(1, int(min_sentencas))
     max_sentencas = max(min_sentencas, int(max_sentencas))
-
 
     # Primeiro, deixa o Summa escolher por ratio
     try:

@@ -1,10 +1,14 @@
-""" Performs text transformation """
+"""Performs text transformation"""
+
 import re
-import unidecode
+
 from bs4 import BeautifulSoup
 
 from cortex_brand_analysis.nlp.models.text_treatment import text_processing_en, text_processing_pt
-from cortex_brand_analysis.nlp.models.text_treatment.find_and_remove_emojis import remove_emojis_from_str
+from cortex_brand_analysis.nlp.models.text_treatment.find_and_remove_emojis import (
+    remove_emojis_from_str,
+)
+
 
 def remove_stopwords(string, language):
     """Remove all stopwords words (link words that generally don't add value to the text).
@@ -31,7 +35,7 @@ def remove_punctuation(string, language):
 
     Returns:
         [str]: Text without punctuation
-    """    
+    """
     if language == "en":
         return text_processing_en.remove_punctuation(string)
     if language == "pt":
@@ -54,6 +58,7 @@ def remove_length_1_tokens(string, language):
     if language == "pt":
         return text_processing_pt.remove_length_1_tokens(string)
     return string
+
 
 def remove_length_2_tokens(string, language):
     """Removes tokens with size less than 2.
@@ -107,17 +112,21 @@ def remove_html_tags(string):
     return soup.get_text()
 
 
-def remove_digits(string, language):    
+def remove_digits(string, language):
     return text_processing_pt.remove_digits(string)
 
-def remove_enrichment(string, language):    
+
+def remove_enrichment(string, language):
     return text_processing_pt.remove_enrichment(string)
+
 
 def remove_sequences_of_spaces(string, language):
     return text_processing_pt.remove_sequences_of_spaces(string)
 
+
 def remove_specific_words(string, language):
     return text_processing_pt.remove_specific_words(string)
+
 
 def clean_text(string, language, **kwargs):
     """
@@ -143,32 +152,31 @@ def clean_text(string, language, **kwargs):
 
     if language not in ["en", "pt"]:
         print(f"No specific cleaning for this language {language}")
-        
-    if "lower" in cleaning_tasks:        
+
+    if "lower" in cleaning_tasks:
         string = string.lower()
-    if "stopwords" in cleaning_tasks:        
-        string = remove_stopwords(string, language)                        
-    if "punctuation" in cleaning_tasks:        
+    if "stopwords" in cleaning_tasks:
+        string = remove_stopwords(string, language)
+    if "punctuation" in cleaning_tasks:
         string = remove_punctuation(string, language)
     if "digits" in cleaning_tasks:
-        string = remove_digits(string, language)  
+        string = remove_digits(string, language)
     if "sequences_of_spaces" in cleaning_tasks:
-        string = remove_sequences_of_spaces(string, language)                      
+        string = remove_sequences_of_spaces(string, language)
     if "lemmatize" in cleaning_tasks:
-        string = text_lemmatizer(string, language)     
+        string = text_lemmatizer(string, language)
     if "remove_enrichment" in cleaning_tasks:
-        string = remove_enrichment(string, language)                           
+        string = remove_enrichment(string, language)
     if "html" in cleaning_tasks:
-        string = remove_html_tags(string)    
+        string = remove_html_tags(string)
     if "emojis" in cleaning_tasks:
         string = remove_emojis_from_str(string)
     if "length_1" in cleaning_tasks:
         string = remove_length_1_tokens(string, language)
     if "length_2" in cleaning_tasks:
-        string = remove_length_2_tokens(string, language)        
+        string = remove_length_2_tokens(string, language)
     if "specific_words" in cleaning_tasks:
-        string = remove_specific_words(string, language)                
-        
+        string = remove_specific_words(string, language)
 
     return string.strip()
 
@@ -220,8 +228,4 @@ def truncate_text(string, max_length):
     Returns:
         [str]
     """
-    return (
-        " ".join(string[0:max_length].split()[:-1])
-        if len(string) >= max_length
-        else string
-    )
+    return " ".join(string[0:max_length].split()[:-1]) if len(string) >= max_length else string

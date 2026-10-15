@@ -1,19 +1,18 @@
-from nltk import FreqDist
-from joblib import Parallel, delayed
 import nltk
+from joblib import Parallel, delayed
+from nltk import FreqDist
 
 nltk.download("averaged_perceptron_tagger")
 
 NER_LIST = ["ORG", "PERSON", "PRODUCT"]
+
 
 # ----------------------------------------------------------------------
 # Opitimization Fuctions
 # ----------------------------------------------------------------------
 def chunker(iterable, total_length, chunksize):
     """Optimization function"""
-    return (
-        iterable[pos : pos + chunksize] for pos in range(0, total_length, chunksize)
-    )
+    return (iterable[pos : pos + chunksize] for pos in range(0, total_length, chunksize))
 
 
 def flatten(list_of_lists):
@@ -43,8 +42,7 @@ def get_optimized_name_entity_recognition(texts, nlp, chunksize=100):
     executor = Parallel(n_jobs=7, backend="multiprocessing", prefer="processes", max_nbytes=None)
     do_optimization = delayed(process_chunk)
     tasks = (
-        do_optimization(chunk, nlp)
-        for chunk in chunker(texts, len(texts), chunksize=chunksize)
+        do_optimization(chunk, nlp) for chunk in chunker(texts, len(texts), chunksize=chunksize)
     )
     result = executor(tasks)
     return flatten(result)
@@ -74,7 +72,5 @@ def get_validated_name_entity_recognition(list_of_texts, nlp, min_freq):
 
     validated_ner_dict = {}
     for name_entity_recognition in validated_ner:
-        validated_ner_dict[name_entity_recognition] = "_".join(
-            name_entity_recognition.split()
-        )
+        validated_ner_dict[name_entity_recognition] = "_".join(name_entity_recognition.split())
     return validated_ner_dict

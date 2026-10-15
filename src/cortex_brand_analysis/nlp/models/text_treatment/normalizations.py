@@ -1,6 +1,4 @@
-def standardize_columns_4_enrichment(
-    dataframe, client_config, cube_key, destandardize=False
-):
+def standardize_columns_4_enrichment(dataframe, client_config, cube_key, destandardize=False):
     """Change names in dataframe for standardization
 
     Args:

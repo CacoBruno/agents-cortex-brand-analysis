@@ -5,60 +5,58 @@ import math
 import re
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 from cortex_brand_analysis.nlp.models.themes.schemas import (
+    ThemeClassifierConfigSchema,
     ThemeDefinitionSchema,
-    ThemeRuleSchema,
-    ThemeWeightsSchema,
     ThemePredictionInputSchema,
     ThemePredictionResultSchema,
-    ThemeClassifierConfigSchema,
+    ThemeRuleSchema,
+    ThemeWeightsSchema,
     ThemeWithFocusConfigSchema,
     ThemeWithFocusDefinitionSchema,
     ThemeWithFocusPredictionOutputSchema,
     ThemeWithFocusRuleSchema,
 )
 
-
 # =========================================================
 # BASE CLASSIFIER
 # =========================================================
 
-DEFAULT_MACROTEMAS: Dict[str, ThemeDefinitionSchema] = {}
-DEFAULT_RULES: Dict[str, ThemeRuleSchema] = {}
+DEFAULT_MACROTEMAS: dict[str, ThemeDefinitionSchema] = {}
+DEFAULT_RULES: dict[str, ThemeRuleSchema] = {}
 
 
 class ThemeClassifierService:
     def __init__(
         self,
-        macrotemas: Optional[Dict[str, ThemeDefinitionSchema]] = None,
-        rules: Optional[Dict[str, ThemeRuleSchema]] = None,
-        config: Optional[ThemeClassifierConfigSchema] = None,
+        macrotemas: dict[str, ThemeDefinitionSchema] | None = None,
+        rules: dict[str, ThemeRuleSchema] | None = None,
+        config: ThemeClassifierConfigSchema | None = None,
     ) -> None:
         self.macrotemas = macrotemas or DEFAULT_MACROTEMAS
         self.rules = rules or DEFAULT_RULES
         self.config = config or ThemeClassifierConfigSchema()
         self.weights: ThemeWeightsSchema = self.config.weights
 
-        self.labels: List[str] = list(self.macrotemas.keys())
+        self.labels: list[str] = list(self.macrotemas.keys())
         self.model = SentenceTransformer(self.config.embedding_model_name)
 
-        self.label_texts: List[str] = [
-            self._build_label_text(label, self.macrotemas[label])
-            for label in self.labels
+        self.label_texts: list[str] = [
+            self._build_label_text(label, self.macrotemas[label]) for label in self.labels
         ]
         self.label_embeddings = self.model.encode(
             self.label_texts,
             normalize_embeddings=True,
         )
 
-        self.prototype_embeddings: Dict[str, Optional[np.ndarray]] = {}
+        self.prototype_embeddings: dict[str, np.ndarray | None] = {}
         for label in self.labels:
             prototipos = self.macrotemas[label].prototipos
             if prototipos:
@@ -80,7 +78,7 @@ class ThemeClassifierService:
         return text
 
     @staticmethod
-    def _safe_round_dict(d: Dict[str, float], ndigits: int = 4) -> Dict[str, float]:
+    def _safe_round_dict(d: dict[str, float], ndigits: int = 4) -> dict[str, float]:
         return {k: round(float(v), ndigits) for k, v in d.items()}
 
     def _build_label_text(self, label: str, payload: ThemeDefinitionSchema) -> str:
@@ -93,7 +91,7 @@ class ThemeClassifierService:
             f"Não classificar aqui se houver: {exclusoes}."
         )
 
-    def score_rules(self, text: str) -> Tuple[Dict[str, float], Dict[str, List[str]]]:
+    def score_rules(self, text: str) -> tuple[dict[str, float], dict[str, list[str]]]:
         text_norm = self._normalize_text(text)
         scores = {label: 0.0 for label in self.labels}
         hits = {label: [] for label in self.labels}
@@ -124,7 +122,7 @@ class ThemeClassifierService:
         return scores, hits
 
     @staticmethod
-    def _minmax_scale(score_map: Dict[str, float]) -> Dict[str, float]:
+    def _minmax_scale(score_map: dict[str, float]) -> dict[str, float]:
         values = np.array(list(score_map.values()), dtype=float)
         min_v = float(np.min(values))
         max_v = float(np.max(values))
@@ -132,36 +130,29 @@ class ThemeClassifierService:
         if max_v - min_v <= 1e-12:
             return {k: 0.0 for k in score_map.keys()}
 
-        return {
-            k: float((v - min_v) / (max_v - min_v))
-            for k, v in score_map.items()
-        }
+        return {k: float((v - min_v) / (max_v - min_v)) for k, v in score_map.items()}
 
     def score_embeddings_split(
         self,
         titulo: str,
         conteudo: str,
-    ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
+    ) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
         titulo_norm = self._normalize_text(titulo)
         conteudo_norm = self._normalize_text(conteudo)
 
         title_emb = self.model.encode([titulo_norm], normalize_embeddings=True)[0]
         content_emb = self.model.encode([conteudo_norm], normalize_embeddings=True)[0]
 
-        title_scores_raw: Dict[str, float] = {}
-        content_scores_raw: Dict[str, float] = {}
-        prototype_scores_raw: Dict[str, float] = {}
+        title_scores_raw: dict[str, float] = {}
+        content_scores_raw: dict[str, float] = {}
+        prototype_scores_raw: dict[str, float] = {}
 
         for i, label in enumerate(self.labels):
             label_emb = self.label_embeddings[i]
 
-            title_scores_raw[label] = float(
-                cosine_similarity([title_emb], [label_emb])[0][0]
-            )
+            title_scores_raw[label] = float(cosine_similarity([title_emb], [label_emb])[0][0])
 
-            content_scores_raw[label] = float(
-                cosine_similarity([content_emb], [label_emb])[0][0]
-            )
+            content_scores_raw[label] = float(cosine_similarity([content_emb], [label_emb])[0][0])
 
             proto_embs = self.prototype_embeddings.get(label)
             if proto_embs is None:
@@ -180,12 +171,12 @@ class ThemeClassifierService:
 
     def combine_scores(
         self,
-        rule_scores: Dict[str, float],
-        title_scores: Dict[str, float],
-        content_scores: Dict[str, float],
-        prototype_scores: Dict[str, float],
-    ) -> Dict[str, float]:
-        final_scores: Dict[str, float] = {}
+        rule_scores: dict[str, float],
+        title_scores: dict[str, float],
+        content_scores: dict[str, float],
+        prototype_scores: dict[str, float],
+    ) -> dict[str, float]:
+        final_scores: dict[str, float] = {}
 
         for label in self.labels:
             prioridade_bonus = self.macrotemas[label].prioridade * 0.01
@@ -301,19 +292,19 @@ class ThemeClassifierService:
         if return_scores:
             for label in self.labels:
                 out[f"score_rule::{label}"] = predictions.apply(
-                    lambda x: x.rule_scores.get(label, 0.0)
+                    lambda x, label=label: x.rule_scores.get(label, 0.0)
                 )
                 out[f"score_title::{label}"] = predictions.apply(
-                    lambda x: x.title_scores.get(label, 0.0)
+                    lambda x, label=label: x.title_scores.get(label, 0.0)
                 )
                 out[f"score_content::{label}"] = predictions.apply(
-                    lambda x: x.content_scores.get(label, 0.0)
+                    lambda x, label=label: x.content_scores.get(label, 0.0)
                 )
                 out[f"score_proto::{label}"] = predictions.apply(
-                    lambda x: x.prototype_scores.get(label, 0.0)
+                    lambda x, label=label: x.prototype_scores.get(label, 0.0)
                 )
                 out[f"score_final::{label}"] = predictions.apply(
-                    lambda x: x.final_scores.get(label, 0.0)
+                    lambda x, label=label: x.final_scores.get(label, 0.0)
                 )
 
         return out
@@ -323,16 +314,17 @@ class ThemeClassifierService:
 # WITH FOCUS
 # =========================================================
 
+
 class ThemeClassifierWithFocusService:
     def __init__(
         self,
-        macrotemas: Optional[Dict[str, ThemeWithFocusDefinitionSchema]] = None,
-        rules: Optional[Dict[str, ThemeWithFocusRuleSchema]] = None,
-        config: Optional[ThemeWithFocusConfigSchema] = None,
+        macrotemas: dict[str, ThemeWithFocusDefinitionSchema] | None = None,
+        rules: dict[str, ThemeWithFocusRuleSchema] | None = None,
+        config: ThemeWithFocusConfigSchema | None = None,
         llm: Any = None,
         embedding_backend: Any = None,
-        macro_groups: Optional[Dict[str, Dict[str, ThemeWithFocusDefinitionSchema]]] = None,
-        macro_rules: Optional[Dict[str, Dict[str, Any]]] = None,
+        macro_groups: dict[str, dict[str, ThemeWithFocusDefinitionSchema]] | None = None,
+        macro_rules: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         self.macrotemas = macrotemas or {}
         self.rules = rules or {}
@@ -342,8 +334,8 @@ class ThemeClassifierWithFocusService:
         self.macro_groups = macro_groups or {}
         self.macro_rules = macro_rules or {}
 
-        self._theme_embedding_cache: Dict[str, List[float]] = {}
-        self._text_embedding_cache: Dict[str, List[float]] = {}
+        self._theme_embedding_cache: dict[str, list[float]] = {}
+        self._text_embedding_cache: dict[str, list[float]] = {}
 
     # =========================================================
     # PUBLIC API
@@ -352,26 +344,22 @@ class ThemeClassifierWithFocusService:
         self,
         titulo: str,
         conteudo: str,
-        focus_entity: Optional[str] = None,
-        focus_aliases: Optional[List[str]] = None,
-        threshold: Optional[float] = None,
-        use_llm_validation: Optional[bool] = None,
-        neighbor_window: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        focus_entity: str | None = None,
+        focus_aliases: list[str] | None = None,
+        threshold: float | None = None,
+        use_llm_validation: bool | None = None,
+        neighbor_window: int | None = None,
+    ) -> dict[str, Any]:
         titulo = (titulo or "").strip()
         conteudo = (conteudo or "").strip()
         full_text = " ".join([p for p in [titulo, conteudo] if p]).strip()
 
         threshold = threshold if threshold is not None else self.config.threshold
         use_llm_validation = (
-            use_llm_validation
-            if use_llm_validation is not None
-            else self.config.use_llm_validation
+            use_llm_validation if use_llm_validation is not None else self.config.use_llm_validation
         )
         neighbor_window = (
-            neighbor_window
-            if neighbor_window is not None
-            else self.config.neighbor_window
+            neighbor_window if neighbor_window is not None else self.config.neighbor_window
         )
 
         self._prepare_theme_embeddings()
@@ -410,7 +398,9 @@ class ThemeClassifierWithFocusService:
                 reason="texto_vazio",
             )
 
-        semantic_source_text = scoring_text if self.config.use_filtered_text_for_semantic else full_text
+        semantic_source_text = (
+            scoring_text if self.config.use_filtered_text_for_semantic else full_text
+        )
         text_emb = self._embed_text(semantic_source_text)
 
         macro_candidates = self._prefilter_macros(
@@ -476,29 +466,28 @@ class ThemeClassifierWithFocusService:
                 reason=best.get("fallback_reason") or "threshold_ou_gate",
             )
 
-        should_skip_llm = (
-            (not use_llm_validation)
-            or (
-                self.config.skip_llm_if_confident
-                and best["score"] >= self.config.confidence_score_threshold
-                and (best["score"] - second_score) >= self.config.min_margin_for_skip_llm
-            )
+        should_skip_llm = (not use_llm_validation) or (
+            self.config.skip_llm_if_confident
+            and best["score"] >= self.config.confidence_score_threshold
+            and (best["score"] - second_score) >= self.config.min_margin_for_skip_llm
         )
 
         valid_themes = []
         fallback_reason = None
 
         if should_skip_llm:
-            valid_themes.append({
-                "label": best["label"],
-                "score": best["score"],
-                "rule_score": best["rule_score"],
-                "embedding_score": best["embedding_score"],
-                "llm_valid": None,
-                "llm_reason": "LLM pulado por alta confiança." if use_llm_validation else None,
-                "llm_evidence_type": None,
-                "llm_confidence": None,
-            })
+            valid_themes.append(
+                {
+                    "label": best["label"],
+                    "score": best["score"],
+                    "rule_score": best["rule_score"],
+                    "embedding_score": best["embedding_score"],
+                    "llm_valid": None,
+                    "llm_reason": "LLM pulado por alta confiança." if use_llm_validation else None,
+                    "llm_evidence_type": None,
+                    "llm_confidence": None,
+                }
+            )
         else:
             theme_definition = self.macrotemas.get(best["label"])
             theme_rule = self.rules.get(best["label"])
@@ -518,16 +507,18 @@ class ThemeClassifierWithFocusService:
             )
 
             if llm_result.get("is_valid"):
-                valid_themes.append({
-                    "label": best["label"],
-                    "score": best["score"],
-                    "rule_score": best["rule_score"],
-                    "embedding_score": best["embedding_score"],
-                    "llm_valid": True,
-                    "llm_reason": llm_result.get("reason"),
-                    "llm_evidence_type": llm_result.get("evidence_type"),
-                    "llm_confidence": llm_result.get("confidence"),
-                })
+                valid_themes.append(
+                    {
+                        "label": best["label"],
+                        "score": best["score"],
+                        "rule_score": best["rule_score"],
+                        "embedding_score": best["embedding_score"],
+                        "llm_valid": True,
+                        "llm_reason": llm_result.get("reason"),
+                        "llm_evidence_type": llm_result.get("evidence_type"),
+                        "llm_confidence": llm_result.get("confidence"),
+                    }
+                )
             else:
                 fallback_reason = llm_result.get("evidence_type") or "llm_invalidou"
 
@@ -568,26 +559,22 @@ class ThemeClassifierWithFocusService:
         df: pd.DataFrame,
         text_col_title: str,
         text_col_content: str,
-        focus_entity_col: Optional[str] = None,
-        focus_aliases_col: Optional[str] = None,
-        threshold: Optional[float] = None,
-        use_llm_validation: Optional[bool] = None,
-        neighbor_window: Optional[int] = None,
+        focus_entity_col: str | None = None,
+        focus_aliases_col: str | None = None,
+        threshold: float | None = None,
+        use_llm_validation: bool | None = None,
+        neighbor_window: int | None = None,
         return_scores: bool = True,
-        llm_batch_size: Optional[int] = None,
+        llm_batch_size: int | None = None,
     ) -> pd.DataFrame:
         df = df.copy()
 
         threshold = threshold if threshold is not None else self.config.threshold
         use_llm_validation = (
-            use_llm_validation
-            if use_llm_validation is not None
-            else self.config.use_llm_validation
+            use_llm_validation if use_llm_validation is not None else self.config.use_llm_validation
         )
         neighbor_window = (
-            neighbor_window
-            if neighbor_window is not None
-            else self.config.neighbor_window
+            neighbor_window if neighbor_window is not None else self.config.neighbor_window
         )
         llm_batch_size = llm_batch_size or self.config.llm_batch_size
 
@@ -597,22 +584,29 @@ class ThemeClassifierWithFocusService:
         contents = df[text_col_content].fillna("").astype(str).tolist()
 
         full_texts = [
-            self._truncate_text(f"{t} {c}", max_chars=2000)
-            for t, c in zip(titles, contents)
+            self._truncate_text(f"{t} {c}", max_chars=2000) 
+            for t, c in zip(titles, contents, strict=True)
         ]
 
-        rows_results: List[Dict[str, Any]] = []
-        llm_queue: List[Dict[str, Any]] = []
+        rows_results: list[dict[str, Any]] = []
+        llm_queue: list[dict[str, Any]] = []
 
         for i, row in enumerate(df.itertuples(index=False)):
             row_dict = row._asdict()
 
             titulo = titles[i]
-            conteudo = contents[i]
             full_text = full_texts[i]
 
-            focus_entity = row_dict.get(focus_entity_col) if focus_entity_col and focus_entity_col in df.columns else None
-            raw_aliases = row_dict.get(focus_aliases_col) if focus_aliases_col and focus_aliases_col in df.columns else None
+            focus_entity = (
+                row_dict.get(focus_entity_col)
+                if focus_entity_col and focus_entity_col in df.columns
+                else None
+            )
+            raw_aliases = (
+                row_dict.get(focus_aliases_col)
+                if focus_aliases_col and focus_aliases_col in df.columns
+                else None
+            )
             focus_aliases = self._coerce_aliases(raw_aliases) if raw_aliases is not None else None
             aliases = focus_aliases or self._build_entity_aliases(focus_entity)
 
@@ -634,22 +628,26 @@ class ThemeClassifierWithFocusService:
                     scoring_text = filtered_text
 
             if not filtered_text.strip():
-                rows_results.append(self._build_fallback_row_result(
-                    full_text=full_text,
-                    filtered_text="",
-                    scoring_text="",
-                    focus_entity=focus_entity,
-                    aliases=aliases,
-                    focus_found=False,
-                    predicted_macro=None,
-                    macro_candidates=[],
-                    theme_candidates=[],
-                    all_scores=[],
-                    reason="texto_vazio",
-                ))
+                rows_results.append(
+                    self._build_fallback_row_result(
+                        full_text=full_text,
+                        filtered_text="",
+                        scoring_text="",
+                        focus_entity=focus_entity,
+                        aliases=aliases,
+                        focus_found=False,
+                        predicted_macro=None,
+                        macro_candidates=[],
+                        theme_candidates=[],
+                        all_scores=[],
+                        reason="texto_vazio",
+                    )
+                )
                 continue
 
-            semantic_source_text = scoring_text if self.config.use_filtered_text_for_semantic else full_text
+            semantic_source_text = (
+                scoring_text if self.config.use_filtered_text_for_semantic else full_text
+            )
             text_emb = self._embed_text(semantic_source_text)
 
             macro_candidates = self._prefilter_macros(
@@ -687,28 +685,27 @@ class ThemeClassifierWithFocusService:
             second_score = predictions[1]["score"] if len(predictions) > 1 else 0.0
 
             if (not best) or (not best.get("passed_threshold", False)):
-                rows_results.append(self._build_fallback_row_result(
-                    full_text=full_text,
-                    filtered_text=filtered_text,
-                    scoring_text=scoring_text,
-                    focus_entity=focus_entity,
-                    aliases=aliases,
-                    focus_found=focus_found,
-                    predicted_macro=predicted_macro,
-                    macro_candidates=macro_candidates,
-                    theme_candidates=candidate_themes,
-                    all_scores=predictions if return_scores else [],
-                    reason=(best or {}).get("fallback_reason") if best else "sem_candidatos",
-                ))
+                rows_results.append(
+                    self._build_fallback_row_result(
+                        full_text=full_text,
+                        filtered_text=filtered_text,
+                        scoring_text=scoring_text,
+                        focus_entity=focus_entity,
+                        aliases=aliases,
+                        focus_found=focus_found,
+                        predicted_macro=predicted_macro,
+                        macro_candidates=macro_candidates,
+                        theme_candidates=candidate_themes,
+                        all_scores=predictions if return_scores else [],
+                        reason=(best or {}).get("fallback_reason") if best else "sem_candidatos",
+                    )
+                )
                 continue
 
-            should_skip_llm = (
-                (not use_llm_validation)
-                or (
-                    self.config.skip_llm_if_confident
-                    and best["score"] >= self.config.confidence_score_threshold
-                    and (best["score"] - second_score) >= self.config.min_margin_for_skip_llm
-                )
+            should_skip_llm = (not use_llm_validation) or (
+                self.config.skip_llm_if_confident
+                and best["score"] >= self.config.confidence_score_threshold
+                and (best["score"] - second_score) >= self.config.min_margin_for_skip_llm
             )
 
             base_result = {
@@ -731,75 +728,86 @@ class ThemeClassifierWithFocusService:
             }
 
             if should_skip_llm:
-                base_result["valid_themes"] = [{
-                    "label": best["label"],
-                    "score": best["score"],
-                    "rule_score": best["rule_score"],
-                    "embedding_score": best["embedding_score"],
-                    "llm_valid": None,
-                    "llm_reason": "LLM pulado por alta confiança." if use_llm_validation else None,
-                    "llm_evidence_type": None,
-                    "llm_confidence": None,
-                }]
+                base_result["valid_themes"] = [
+                    {
+                        "label": best["label"],
+                        "score": best["score"],
+                        "rule_score": best["rule_score"],
+                        "embedding_score": best["embedding_score"],
+                        "llm_valid": None,
+                        "llm_reason": "LLM pulado por alta confiança."
+                        if use_llm_validation
+                        else None,
+                        "llm_evidence_type": None,
+                        "llm_confidence": None,
+                    }
+                ]
             else:
                 theme_definition = self.macrotemas.get(best["label"])
                 theme_rule = self.rules.get(best["label"])
 
-                llm_queue.append({
-                    "row_id": i,
-                    "titulo": titulo,
-                    "conteudo": filtered_text,
-                    "scoring_text": scoring_text,
-                    "conteudo_completo": full_text,
-                    "focus_entity": focus_entity,
-                    "focus_aliases": aliases,
-                    "theme_label": best["label"],
-                    "theme_definition": {
-                        "descricao": getattr(theme_definition, "descricao", ""),
-                        "exemplos": getattr(theme_definition, "exemplos", []),
-                        "exclusoes": getattr(theme_definition, "exclusoes", []),
-                        "prototipos": getattr(theme_definition, "prototipos", []),
-                    },
-                    "theme_rule": {
-                        "include": getattr(theme_rule, "include", []) if theme_rule else [],
-                        "exclude": getattr(theme_rule, "exclude", []) if theme_rule else [],
-                        "weight": getattr(theme_rule, "weight", 1.0) if theme_rule else 1.0,
-                    },
-                    "rule_score": best["rule_score"],
-                    "semantic_score": best["embedding_score"],
-                    "top_candidates": predictions[:3],
-                })
+                llm_queue.append(
+                    {
+                        "row_id": i,
+                        "titulo": titulo,
+                        "conteudo": filtered_text,
+                        "scoring_text": scoring_text,
+                        "conteudo_completo": full_text,
+                        "focus_entity": focus_entity,
+                        "focus_aliases": aliases,
+                        "theme_label": best["label"],
+                        "theme_definition": {
+                            "descricao": getattr(theme_definition, "descricao", ""),
+                            "exemplos": getattr(theme_definition, "exemplos", []),
+                            "exclusoes": getattr(theme_definition, "exclusoes", []),
+                            "prototipos": getattr(theme_definition, "prototipos", []),
+                        },
+                        "theme_rule": {
+                            "include": getattr(theme_rule, "include", []) if theme_rule else [],
+                            "exclude": getattr(theme_rule, "exclude", []) if theme_rule else [],
+                            "weight": getattr(theme_rule, "weight", 1.0) if theme_rule else 1.0,
+                        },
+                        "rule_score": best["rule_score"],
+                        "semantic_score": best["embedding_score"],
+                        "top_candidates": predictions[:3],
+                    }
+                )
 
             rows_results.append(base_result)
 
         for start in range(0, len(llm_queue), llm_batch_size):
-            batch = llm_queue[start:start + llm_batch_size]
+            batch = llm_queue[start : start + llm_batch_size]
             llm_results = self._llm_validate_theme_batch(batch)
 
             for item in batch:
                 row_id = item["row_id"]
-                llm_result = llm_results.get(row_id, {
-                    "is_valid": True,
-                    "reason": "Fallback.",
-                    "evidence_type": "fallback",
-                    "confidence": 0.0,
-                })
+                llm_result = llm_results.get(
+                    row_id,
+                    {
+                        "is_valid": True,
+                        "reason": "Fallback.",
+                        "evidence_type": "fallback",
+                        "confidence": 0.0,
+                    },
+                )
 
                 if llm_result.get("is_valid"):
                     best_theme = rows_results[row_id]["best_theme"]
                     all_scores = rows_results[row_id]["all_scores"]
                     best_pred = next((x for x in all_scores if x["label"] == best_theme), None)
 
-                    rows_results[row_id]["valid_themes"] = [{
-                        "label": best_theme,
-                        "score": rows_results[row_id]["best_score"],
-                        "rule_score": best_pred["rule_score"] if best_pred else None,
-                        "embedding_score": best_pred["embedding_score"] if best_pred else None,
-                        "llm_valid": True,
-                        "llm_reason": llm_result.get("reason"),
-                        "llm_evidence_type": llm_result.get("evidence_type"),
-                        "llm_confidence": llm_result.get("confidence"),
-                    }]
+                    rows_results[row_id]["valid_themes"] = [
+                        {
+                            "label": best_theme,
+                            "score": rows_results[row_id]["best_score"],
+                            "rule_score": best_pred["rule_score"] if best_pred else None,
+                            "embedding_score": best_pred["embedding_score"] if best_pred else None,
+                            "llm_valid": True,
+                            "llm_reason": llm_result.get("reason"),
+                            "llm_evidence_type": llm_result.get("evidence_type"),
+                            "llm_confidence": llm_result.get("confidence"),
+                        }
+                    ]
                 else:
                     fallback = self._build_fallback_row_result(
                         full_text=item["conteudo_completo"],
@@ -845,11 +853,11 @@ class ThemeClassifierWithFocusService:
         text_col_content: str,
         distance_col: str = "distance_to_centroid",
         closest_cluster_n: int = 10,
-        focus_entity_col: Optional[str] = None,
-        focus_aliases_col: Optional[str] = None,
+        focus_entity_col: str | None = None,
+        focus_aliases_col: str | None = None,
         cluster_text_max_chars: int = 4000,
-    ) -> Dict[Any, Dict[str, Any]]:
-        cluster_dict: Dict[Any, Dict[str, Any]] = {}
+    ) -> dict[Any, dict[str, Any]]:
+        cluster_dict: dict[Any, dict[str, Any]] = {}
 
         if cluster_id_col not in df.columns:
             raise ValueError(
@@ -895,30 +903,19 @@ class ThemeClassifierWithFocusService:
             group[text_col_content] = group[text_col_content].fillna("").astype(str)
             group[distance_col] = pd.to_numeric(group[distance_col], errors="coerce")
 
-            group["_text_len"] = (
-                group[text_col_title].str.len() +
-                group[text_col_content].str.len()
-            )
+            group["_text_len"] = group[text_col_title].str.len() + group[text_col_content].str.len()
 
             valid_distance_group = group[group[distance_col].notna()].copy()
 
             if not valid_distance_group.empty:
-                selected = (
-                    valid_distance_group
-                    .sort_values(
-                        by=[distance_col, "_text_len"],
-                        ascending=[True, False],
-                    )
-                    .head(closest_cluster_n)
-                )
+                selected = valid_distance_group.sort_values(
+                    by=[distance_col, "_text_len"],
+                    ascending=[True, False],
+                ).head(closest_cluster_n)
             else:
-                selected = (
-                    group
-                    .sort_values("_text_len", ascending=False)
-                    .head(closest_cluster_n)
-                )
+                selected = group.sort_values("_text_len", ascending=False).head(closest_cluster_n)
 
-            snippets: List[str] = []
+            snippets: list[str] = []
             current_chars = 0
 
             for _, row in selected.iterrows():
@@ -968,7 +965,7 @@ class ThemeClassifierWithFocusService:
 
     def _is_ambiguous_cluster_prediction(
         self,
-        prediction: Dict[str, Any],
+        prediction: dict[str, Any],
         ambiguous_score_threshold: float = 0.72,
         ambiguous_margin_threshold: float = 0.12,
     ) -> bool:
@@ -981,10 +978,7 @@ class ThemeClassifierWithFocusService:
 
         margin = best_score - second_score
 
-        return (
-            best_score < ambiguous_score_threshold
-            or margin < ambiguous_margin_threshold
-        )
+        return best_score < ambiguous_score_threshold or margin < ambiguous_margin_threshold
 
     def predict_dataframe_with_focus_by_cluster(
         self,
@@ -994,13 +988,13 @@ class ThemeClassifierWithFocusService:
         text_col_content: str,
         distance_col: str = "distance_to_centroid",
         closest_cluster_n: int = 10,
-        focus_entity_col: Optional[str] = None,
-        focus_aliases_col: Optional[str] = None,
-        threshold: Optional[float] = None,
-        use_llm_validation: Optional[bool] = False,
-        neighbor_window: Optional[int] = None,
+        focus_entity_col: str | None = None,
+        focus_aliases_col: str | None = None,
+        threshold: float | None = None,
+        use_llm_validation: bool | None = False,
+        neighbor_window: int | None = None,
         return_scores: bool = True,
-        llm_batch_size: Optional[int] = None,
+        llm_batch_size: int | None = None,
         cluster_text_max_chars: int = 4000,
         run_ambiguous_llm_validation: bool = False,
         ambiguous_score_threshold: float = 0.72,
@@ -1047,21 +1041,15 @@ class ThemeClassifierWithFocusService:
         threshold = threshold if threshold is not None else self.config.threshold
 
         neighbor_window = (
-            neighbor_window
-            if neighbor_window is not None
-            else self.config.neighbor_window
+            neighbor_window if neighbor_window is not None else self.config.neighbor_window
         )
 
         use_llm_validation = (
-            use_llm_validation
-            if use_llm_validation is not None
-            else self.config.use_llm_validation
+            use_llm_validation if use_llm_validation is not None else self.config.use_llm_validation
         )
 
         llm_batch_size = (
-            llm_batch_size
-            if llm_batch_size is not None
-            else self.config.llm_batch_size
+            llm_batch_size if llm_batch_size is not None else self.config.llm_batch_size
         )
 
         cluster_dict = self.build_cluster_text_dict(
@@ -1076,7 +1064,7 @@ class ThemeClassifierWithFocusService:
             cluster_text_max_chars=cluster_text_max_chars,
         )
 
-        cluster_predictions: Dict[Any, Dict[str, Any]] = {}
+        cluster_predictions: dict[Any, dict[str, Any]] = {}
 
         # Primeiro passe: classificação por cluster
         # Se run_ambiguous_llm_validation=True, o primeiro passe roda sem LLM
@@ -1102,7 +1090,7 @@ class ThemeClassifierWithFocusService:
 
         # Refinamento opcional apenas para clusters ambíguos
         if run_ambiguous_llm_validation and use_llm_validation:
-            ambiguous_cluster_ids: List[Any] = []
+            ambiguous_cluster_ids: list[Any] = []
 
             for cluster_id, prediction in cluster_predictions.items():
                 if self._is_ambiguous_cluster_prediction(
@@ -1202,15 +1190,15 @@ class ThemeClassifierWithFocusService:
         full_text: str,
         filtered_text: str,
         scoring_text: str,
-        focus_entity: Optional[str],
-        aliases: List[str],
+        focus_entity: str | None,
+        aliases: list[str],
         focus_found: bool,
-        predicted_macro: Optional[str],
-        macro_candidates: List[str],
-        theme_candidates: List[str],
-        all_scores: List[Dict[str, Any]],
-        reason: Optional[str],
-    ) -> Dict[str, Any]:
+        predicted_macro: str | None,
+        macro_candidates: list[str],
+        theme_candidates: list[str],
+        all_scores: list[dict[str, Any]],
+        reason: str | None,
+    ) -> dict[str, Any]:
         suggestion = self._llm_suggest_theme_on_fallback(
             full_text=full_text,
             filtered_text=filtered_text,
@@ -1245,15 +1233,15 @@ class ThemeClassifierWithFocusService:
         full_text: str,
         filtered_text: str,
         scoring_text: str,
-        focus_entity: Optional[str],
-        aliases: List[str],
+        focus_entity: str | None,
+        aliases: list[str],
         focus_found: bool,
-        predicted_macro: Optional[str],
-        macro_candidates: List[str],
-        theme_candidates: List[str],
-        all_scores: List[Dict[str, Any]],
-        reason: Optional[str],
-    ) -> Dict[str, Any]:
+        predicted_macro: str | None,
+        macro_candidates: list[str],
+        theme_candidates: list[str],
+        all_scores: list[dict[str, Any]],
+        reason: str | None,
+    ) -> dict[str, Any]:
         row = self._build_fallback_row_result(
             full_text=full_text,
             filtered_text=filtered_text,
@@ -1274,12 +1262,12 @@ class ThemeClassifierWithFocusService:
         full_text: str,
         filtered_text: str,
         scoring_text: str,
-        focus_entity: Optional[str],
-        aliases: List[str],
-        candidate_themes: List[str],
-        predicted_macro: Optional[str],
-        all_scores: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        focus_entity: str | None,
+        aliases: list[str],
+        candidate_themes: list[str],
+        predicted_macro: str | None,
+        all_scores: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         if not self.config.fallback_use_llm_suggestion:
             return {}
         if self.llm is None:
@@ -1301,7 +1289,7 @@ Responda apenas JSON válido:
   "reason": "..."
 }}
 
-Entidade foco: {focus_entity or 'não informada'}
+Entidade foco: {focus_entity or "não informada"}
 Aliases: {aliases}
 Macro prevista: {predicted_macro}
 Temas candidatos: {candidate_themes}
@@ -1332,7 +1320,7 @@ Texto para scoring: {scoring_text[:1800]}
         text: str,
         min_rule_score: float = 0.05,
         top_k: int = 3,
-    ) -> List[str]:
+    ) -> list[str]:
         scored = []
 
         for macro_label, rule_dict in self.macro_rules.items():
@@ -1350,19 +1338,22 @@ Texto para scoring: {scoring_text[:1800]}
     def _prefilter_themes(
         self,
         text: str,
-        candidate_labels: List[str],
+        candidate_labels: list[str],
         min_rule_score: float = 0.03,
         top_k: int = 6,
-    ) -> List[str]:
+    ) -> list[str]:
         scored = []
 
         for theme_label in candidate_labels:
             rule = self.rules.get(theme_label)
-            score = self._score_rule_dict(text, {
-                "include": getattr(rule, "include", []) if rule else [],
-                "exclude": getattr(rule, "exclude", []) if rule else [],
-                "weight": getattr(rule, "weight", 1.0) if rule else 1.0,
-            })
+            score = self._score_rule_dict(
+                text,
+                {
+                    "include": getattr(rule, "include", []) if rule else [],
+                    "exclude": getattr(rule, "exclude", []) if rule else [],
+                    "weight": getattr(rule, "weight", 1.0) if rule else 1.0,
+                },
+            )
             if score >= min_rule_score:
                 scored.append((theme_label, score))
 
@@ -1375,10 +1366,10 @@ Texto para scoring: {scoring_text[:1800]}
 
     def _predict_macro(
         self,
-        text_emb: List[float],
+        text_emb: list[float],
         filtered_text: str,
-        candidate_macros: List[str],
-    ) -> Optional[str]:
+        candidate_macros: list[str],
+    ) -> str | None:
         scored = []
 
         for macro_label in candidate_macros:
@@ -1395,10 +1386,7 @@ Texto para scoring: {scoring_text[:1800]}
             if not sub_embs:
                 continue
 
-            centroid = [
-                sum(values) / len(values)
-                for values in zip(*sub_embs)
-            ]
+            centroid = [sum(values) / len(values) for values in zip(*sub_embs, strict=True)]
 
             semantic_score = self._cosine_similarity(text_emb, centroid)
             rule_score = self._score_rule_dict(filtered_text, self.macro_rules.get(macro_label))
@@ -1415,9 +1403,9 @@ Texto para scoring: {scoring_text[:1800]}
         self,
         theme_label: str,
         scoring_text: str,
-        semantic_text_emb: List[float],
+        semantic_text_emb: list[float],
         threshold: float,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         rule = self.rules.get(theme_label)
         theme_emb = self._theme_embedding_cache.get(theme_label, [])
 
@@ -1438,8 +1426,7 @@ Texto para scoring: {scoring_text[:1800]}
             semantic_score = min(semantic_score, self.config.semantic_cap_without_lexical)
 
         final_score = (
-            self.config.rule_weight * rule_score
-            + self.config.semantic_weight * semantic_score
+            self.config.rule_weight * rule_score + self.config.semantic_weight * semantic_score
         )
 
         fallback_reason = None
@@ -1469,11 +1456,11 @@ Texto para scoring: {scoring_text[:1800]}
 
     def _score_themes_parallel(
         self,
-        candidate_theme_labels: List[str],
+        candidate_theme_labels: list[str],
         scoring_text: str,
-        semantic_text_emb: List[float],
+        semantic_text_emb: list[float],
         threshold: float,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         if not candidate_theme_labels:
             return []
 
@@ -1509,8 +1496,8 @@ Texto para scoring: {scoring_text[:1800]}
     # =========================================================
     def _llm_validate_theme_batch(
         self,
-        items: List[Dict[str, Any]],
-    ) -> Dict[int, Dict[str, Any]]:
+        items: list[dict[str, Any]],
+    ) -> dict[int, dict[str, Any]]:
         if not items:
             return {}
 
@@ -1588,15 +1575,15 @@ Casos:
         titulo: str,
         conteudo: str,
         conteudo_completo: str,
-        focus_entity: Optional[str],
-        focus_aliases: Optional[List[str]],
+        focus_entity: str | None,
+        focus_aliases: list[str] | None,
         theme_label: str,
-        theme_definition: Optional[ThemeWithFocusDefinitionSchema] = None,
-        theme_rule: Optional[ThemeWithFocusRuleSchema] = None,
-        rule_score: Optional[float] = None,
-        semantic_score: Optional[float] = None,
-        top_candidates: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        theme_definition: ThemeWithFocusDefinitionSchema | None = None,
+        theme_rule: ThemeWithFocusRuleSchema | None = None,
+        rule_score: float | None = None,
+        semantic_score: float | None = None,
+        top_candidates: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         if self.llm is None:
             return {
                 "is_valid": True,
@@ -1714,19 +1701,19 @@ Responda apenas JSON:
 
         if missing_texts:
             embs = self._embed_batch(missing_texts)
-            for label, emb in zip(missing_labels, embs):
+            for label, emb in zip(missing_labels, embs, strict=True):
                 self._theme_embedding_cache[label] = emb
 
-    def _embed_batch(self, texts: List[str], batch_size: int = 64) -> List[List[float]]:
+    def _embed_batch(self, texts: list[str], batch_size: int = 64) -> list[list[float]]:
         clean_texts = [str(t).strip() for t in texts if str(t).strip()]
 
         if not clean_texts:
             return []
 
-        all_embeddings: List[List[float]] = []
+        all_embeddings: list[list[float]] = []
 
         for i in range(0, len(clean_texts), batch_size):
-            chunk = clean_texts[i:i + batch_size]
+            chunk = clean_texts[i : i + batch_size]
 
             if hasattr(self.embedding_backend, "embed_documents"):
                 embs = self.embedding_backend.embed_documents(chunk)
@@ -1741,7 +1728,7 @@ Responda apenas JSON:
         text = (text or "").strip()
         return text[:max_chars] if text else ""
 
-    def _embed_text(self, text: str) -> List[float]:
+    def _embed_text(self, text: str) -> list[float]:
         clean_text = (text or "").strip()
         if not clean_text:
             return []
@@ -1760,11 +1747,11 @@ Responda apenas JSON:
         self._text_embedding_cache[clean_text] = emb
         return emb
 
-    def _cosine_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
+    def _cosine_similarity(self, vec_a: list[float], vec_b: list[float]) -> float:
         if not vec_a or not vec_b or len(vec_a) != len(vec_b):
             return 0.0
 
-        dot = sum(a * b for a, b in zip(vec_a, vec_b))
+        dot = sum(a * b for a, b in zip(vec_a, vec_b, strict=True))
         norm_a = math.sqrt(sum(a * a for a in vec_a))
         norm_b = math.sqrt(sum(b * b for b in vec_b))
 
@@ -1776,7 +1763,7 @@ Responda apenas JSON:
     # =========================================================
     # RULES / FOCUS
     # =========================================================
-    def _score_rule_dict(self, text: str, rule_dict: Optional[Dict[str, Any]]) -> float:
+    def _score_rule_dict(self, text: str, rule_dict: dict[str, Any] | None) -> float:
         if not rule_dict:
             return 0.0
 
@@ -1792,7 +1779,7 @@ Responda apenas JSON:
         score = max(base - penalty, 0.0) * weight
         return min(score, 1.0)
 
-    def _count_rule_hits(self, text: str, rule_dict: Optional[Dict[str, Any]]) -> Tuple[int, int]:
+    def _count_rule_hits(self, text: str, rule_dict: dict[str, Any] | None) -> tuple[int, int]:
         if not rule_dict:
             return 0, 0
         include_terms = rule_dict.get("include", []) or []
@@ -1819,25 +1806,35 @@ Responda apenas JSON:
 
         return term_norm in text_norm
 
-    def _remove_aliases_from_text(self, text: str, aliases: List[str]) -> str:
+    def _remove_aliases_from_text(self, text: str, aliases: list[str]) -> str:
         cleaned = text or ""
-        ordered_aliases = sorted({self._normalize_text(a) for a in aliases if a}, key=len, reverse=True)
+        ordered_aliases = sorted(
+            {self._normalize_text(a) for a in aliases if a}, key=len, reverse=True
+        )
         for alias in ordered_aliases:
             if not alias:
                 continue
-            cleaned = re.sub(rf"(?<!\w){re.escape(alias)}(?!\w)", " ", self._normalize_text(cleaned), flags=re.IGNORECASE)
+            cleaned = re.sub(
+                rf"(?<!\w){re.escape(alias)}(?!\w)",
+                " ",
+                self._normalize_text(cleaned),
+                flags=re.IGNORECASE,
+            )
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
         return cleaned
 
     def _looks_like_generic_financial_theme(self, theme_label: str) -> bool:
         label_norm = self._normalize_text(theme_label)
-        return any(token in label_norm for token in ["financeir", "resultado financeiro", "balanco", "balanço"])
+        return any(
+            token in label_norm
+            for token in ["financeir", "resultado financeiro", "balanco", "balanço"]
+        )
 
     def _build_entity_aliases(
         self,
-        entity: Optional[str],
-        extra_aliases: Optional[List[str]] = None,
-    ) -> List[str]:
+        entity: str | None,
+        extra_aliases: list[str] | None = None,
+    ) -> list[str]:
         entity = (entity or "").strip()
         if not entity:
             return []
@@ -1858,10 +1855,28 @@ Responda apenas JSON:
             aliases.add(cleaned_norm)
 
         corporate_suffixes = [
-            "s a", "sa", "s.a", "s.a.", "ltda", "ltda.", "me", "eireli",
-            "holding", "holdings", "participacoes", "participações",
-            "group", "grupo", "inc", "inc.", "corp", "corp.",
-            "corporation", "companhia", "cia", "cia.",
+            "s a",
+            "sa",
+            "s.a",
+            "s.a.",
+            "ltda",
+            "ltda.",
+            "me",
+            "eireli",
+            "holding",
+            "holdings",
+            "participacoes",
+            "participações",
+            "group",
+            "grupo",
+            "inc",
+            "inc.",
+            "corp",
+            "corp.",
+            "corporation",
+            "companhia",
+            "cia",
+            "cia.",
         ]
 
         base_variants = {cleaned, cleaned_norm, raw_lower, raw_norm}
@@ -1883,9 +1898,21 @@ Responda apenas JSON:
         aliases.update(reduced_variants)
 
         token_blacklist = {
-            "sa", "s", "a", "ltda", "me", "eireli", "group", "grupo",
-            "holdings", "holding", "inc", "corp", "corporation",
-            "companhia", "cia"
+            "sa",
+            "s",
+            "a",
+            "ltda",
+            "me",
+            "eireli",
+            "group",
+            "grupo",
+            "holdings",
+            "holding",
+            "inc",
+            "corp",
+            "corporation",
+            "companhia",
+            "cia",
         }
 
         for variant in list(aliases):
@@ -1907,14 +1934,12 @@ Responda apenas JSON:
                     aliases.add(alias_norm)
 
         aliases = {
-            re.sub(r"\s+", " ", a).strip()
-            for a in aliases
-            if a and re.sub(r"\s+", " ", a).strip()
+            re.sub(r"\s+", " ", a).strip() for a in aliases if a and re.sub(r"\s+", " ", a).strip()
         }
 
         return sorted(aliases)
 
-    def _coerce_aliases(self, raw_aliases: Any) -> Optional[List[str]]:
+    def _coerce_aliases(self, raw_aliases: Any) -> list[str] | None:
         if raw_aliases is None:
             return None
 
@@ -1942,7 +1967,7 @@ Responda apenas JSON:
     def _extract_focus_context(
         self,
         text: str,
-        aliases: List[str],
+        aliases: list[str],
         window: int = 1,
     ) -> str:
         if not text or not aliases:
@@ -1969,7 +1994,7 @@ Responda apenas JSON:
         selected_sentences = [sentences[i] for i in sorted(selected_idxs)]
         return " ".join(selected_sentences).strip()
 
-    def _split_sentences(self, text: str) -> List[str]:
+    def _split_sentences(self, text: str) -> list[str]:
         parts = re.split(r"(?<=[\.\!\?\;\:])\s+", text.strip())
         return [p.strip() for p in parts if p.strip()]
 
@@ -1983,7 +2008,7 @@ Responda apenas JSON:
         text = re.sub(r"\s+", " ", text)
         return text
 
-    def _safe_parse_json(self, text: str) -> Dict[str, Any]:
+    def _safe_parse_json(self, text: str) -> dict[str, Any]:
         text = text.strip()
 
         try:
@@ -2000,7 +2025,7 @@ Responda apenas JSON:
 
         return {}
 
-    def _safe_parse_json_list(self, text: str) -> List[Dict[str, Any]]:
+    def _safe_parse_json_list(self, text: str) -> list[dict[str, Any]]:
         text = text.strip()
 
         try:

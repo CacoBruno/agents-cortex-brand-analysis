@@ -91,24 +91,22 @@ class CommunicationIndexesWorkflow:
         impact_col: str,
     ) -> pd.DataFrame:
         _validate(df, group_by + [value_col, impact_col])
-        pivot = (
-            df.pivot_table(
-                index=group_by,
-                columns=impact_col,
-                values=value_col,
-                aggfunc="sum",
-                fill_value=0,
-            )
-            .reset_index()
-        )
+        pivot = df.pivot_table(
+            index=group_by,
+            columns=impact_col,
+            values=value_col,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()
         for col in ["Promotores", "Detratores", "Inócuos"]:
             if col not in pivot.columns:
                 pivot[col] = 0
         denom = pivot["Promotores"] + pivot["Detratores"] + pivot["Inócuos"]
         pivot["nps_score"] = (
-            (pivot["Promotores"] - pivot["Detratores"])
-            / denom.replace(0, pd.NA)
-        ).fillna(0).round(4)
+            ((pivot["Promotores"] - pivot["Detratores"]) / denom.replace(0, pd.NA))
+            .fillna(0)
+            .round(4)
+        )
         return pivot
 
     @staticmethod
@@ -124,35 +122,30 @@ class CommunicationIndexesWorkflow:
         _validate(df, group_by + [dimension_col, value_col, impact_col])
 
         impacts = ["Promotores", "Detratores", "Inócuos"]
-        total = (
-            df.pivot_table(
-                index=group_by,
-                columns=impact_col,
-                values=value_col,
-                aggfunc="sum",
-                fill_value=0,
-            )
-            .reset_index()
-        )
+        total = df.pivot_table(
+            index=group_by,
+            columns=impact_col,
+            values=value_col,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()
         for col in impacts:
             if col not in total.columns:
                 total[col] = 0
         total["denom_total"] = total[impacts].sum(axis=1)
         total["nps_score"] = (
-            (total["Promotores"] - total["Detratores"])
-            / total["denom_total"].replace(0, pd.NA)
-        ).fillna(0).round(2)
-
-        dimension = (
-            df.pivot_table(
-                index=group_by + [dimension_col],
-                columns=impact_col,
-                values=value_col,
-                aggfunc="sum",
-                fill_value=0,
-            )
-            .reset_index()
+            ((total["Promotores"] - total["Detratores"]) / total["denom_total"].replace(0, pd.NA))
+            .fillna(0)
+            .round(2)
         )
+
+        dimension = df.pivot_table(
+            index=group_by + [dimension_col],
+            columns=impact_col,
+            values=value_col,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()
         for col in impacts:
             if col not in dimension.columns:
                 dimension[col] = 0
@@ -170,13 +163,12 @@ class CommunicationIndexesWorkflow:
             if contribution_type == "Promotor"
             else out["Promotores"] - out["Detratores"]
         )
-        out[contrib_col] = (
-            numerator / out["denom_total"].replace(0, pd.NA)
-        ).fillna(0).round(4)
-        return out[
-            group_by
-            + [dimension_col, "nps_score", contrib_col, total_col, "denom_total"]
-        ].sort_values(group_by + [dimension_col]).reset_index(drop=True)
+        out[contrib_col] = (numerator / out["denom_total"].replace(0, pd.NA)).fillna(0).round(4)
+        return (
+            out[group_by + [dimension_col, "nps_score", contrib_col, total_col, "denom_total"]]
+            .sort_values(group_by + [dimension_col])
+            .reset_index(drop=True)
+        )
 
     @staticmethod
     def _protagonism(
@@ -193,16 +185,13 @@ class CommunicationIndexesWorkflow:
             df = df[df[filter_column].isin(values)]
 
         _validate(df, group_by + [value_col, impact_col])
-        pivot = (
-            df.pivot_table(
-                index=group_by,
-                columns=impact_col,
-                values=value_col,
-                aggfunc="sum",
-                fill_value=0,
-            )
-            .reset_index()
-        )
+        pivot = df.pivot_table(
+            index=group_by,
+            columns=impact_col,
+            values=value_col,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()
         categories = [
             "Citação relevante",
             "Figurante",
@@ -216,9 +205,13 @@ class CommunicationIndexesWorkflow:
 
         denom = pivot[categories].sum(axis=1).astype(float)
         pivot["protagonism_score"] = (
-            (pivot["Protagonismo"] + pivot["Referência contextual / Setor"])
-            / denom.where(denom != 0)
-        ).fillna(0).round(4)
+            (
+                (pivot["Protagonismo"] + pivot["Referência contextual / Setor"])
+                / denom.where(denom != 0)
+            )
+            .fillna(0)
+            .round(4)
+        )
         pivot["total"] = denom
         return pivot
 
@@ -230,16 +223,13 @@ class CommunicationIndexesWorkflow:
         impact_col: str,
     ) -> pd.DataFrame:
         _validate(df, group_by + [value_col, impact_col])
-        pivot = (
-            df.pivot_table(
-                index=group_by,
-                columns=impact_col,
-                values=value_col,
-                aggfunc="sum",
-                fill_value=0,
-            )
-            .reset_index()
-        )
+        pivot = df.pivot_table(
+            index=group_by,
+            columns=impact_col,
+            values=value_col,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()
 
         groups = [
             ["Promotores", "Detratores", "Inócuos"],
@@ -264,15 +254,12 @@ class CommunicationIndexesWorkflow:
         value_col: str,
     ) -> pd.DataFrame:
         _validate(df, group_by + [value_col])
-        result = (
-            df.pivot_table(
-                index=group_by,
-                values=value_col,
-                aggfunc="sum",
-                fill_value=0,
-            )
-            .reset_index()
-        )
+        result = df.pivot_table(
+            index=group_by,
+            values=value_col,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()
         result[value_col] = result[value_col].round(2)
         return result
 
@@ -283,12 +270,9 @@ class CommunicationIndexesWorkflow:
         value_cols: list[str],
     ) -> pd.DataFrame:
         _validate(df, group_by + value_cols)
-        return (
-            df.pivot_table(
-                index=group_by,
-                values=value_cols,
-                aggfunc="sum",
-                fill_value=0,
-            )
-            .reset_index()
-        )
+        return df.pivot_table(
+            index=group_by,
+            values=value_cols,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()

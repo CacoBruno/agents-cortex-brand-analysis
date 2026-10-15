@@ -121,7 +121,14 @@ class AnalyticsWorkflow:
             work = work.dropna(subset=[request.date_column]).set_index(request.date_column)
 
             if request.aggregation == "count":
-                result = work.resample(request.frequency).size().reset_index(name="count")
+
+                frequency = "ME" if request.frequency == "M" else request.frequency
+
+                result = (work.resample(frequency)
+                .size()
+                .reset_index(name="count") 
+            )
+
             else:
                 assert request.metric is not None
                 assert request.aggregation is not None

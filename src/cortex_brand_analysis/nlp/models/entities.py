@@ -1,18 +1,14 @@
+import hashlib
 import re
 import unicodedata
-from collections import defaultdict, Counter
-from typing import List, Dict, Any, Optional
+from collections import defaultdict
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
+TIER_WEIGHT = {"Tier 1": 1.0, "Tier 2": 0.7, "Tier 3": 0.4, "Outros": 0.1}
 
-TIER_WEIGHT = {
-    "Tier 1": 1.0,
-    "Tier 2": 0.7,
-    "Tier 3": 0.4,
-    "Outros" : 0.1
-}
 
 # =========================================================
 # NORMALIZAÇÃO E SPLIT
@@ -27,7 +23,7 @@ def normalize_text(text: str) -> str:
     return text
 
 
-def split_sentences(text: str) -> List[str]:
+def split_sentences(text: str) -> list[str]:
     if pd.isna(text):
         return []
     text = str(text).strip()
@@ -60,6 +56,7 @@ def get_sentence_transformer(model_name: str = "paraphrase-multilingual-MiniLM-L
         pip install sentence-transformers
     """
     from sentence_transformers import SentenceTransformer
+
     return SentenceTransformer(model_name)
 
 
@@ -73,7 +70,7 @@ def cosine_similarity_matrix(embeddings: np.ndarray) -> np.ndarray:
 # =========================================================
 # EXTRAÇÃO DE FRASES COM TERMOS
 # =========================================================
-def select_phrases_with_terms(text: str, list_search: List[str]) -> List[Dict[str, Any]]:
+def select_phrases_with_terms(text: str, list_search: list[str]) -> list[dict[str, Any]]:
     phrases = split_sentences(text)
     search_terms = [(term, normalize_text(term)) for term in list_search]
 
@@ -89,10 +86,7 @@ def select_phrases_with_terms(text: str, list_search: List[str]) -> List[Dict[st
                 found_terms.append(original_term)
 
         if found_terms:
-            results.append({
-                "phrase": phrase,
-                "terms_found": found_terms
-            })
+            results.append({"phrase": phrase, "terms_found": found_terms})
 
     return results
 
@@ -102,9 +96,9 @@ def select_phrases_with_terms(text: str, list_search: List[str]) -> List[Dict[st
 # =========================================================
 def score_phrase_relevance(
     phrase: str,
-    terms_found: List[str],
-    title: Optional[str] = None,
-    source: Optional[str] = None,
+    terms_found: list[str],
+    title: str | None = None,
+    source: str | None = None,
 ) -> float:
     """
     Heurística de score:
@@ -165,12 +159,12 @@ def score_phrase_relevance(
 # REMOÇÃO DE FRASES SIMILARES COM EMBEDDINGS
 # =========================================================
 def remove_similares_embeddings(
-    frases: List[str],
+    frases: list[str],
     model,
     similarity_threshold: float = 0.82,
     max_frases: int = 5,
-    scores: Optional[List[float]] = None,
-) -> List[str]:
+    scores: list[float] | None = None,
+) -> list[str]:
     """
     Remove frases semanticamente muito próximas.
     Mantém preferencialmente as de maior score.
@@ -216,10 +210,8 @@ def remove_similares_embeddings(
 # CLUSTER SEMÂNTICO DE FRASES
 # =========================================================
 def cluster_phrases_embeddings(
-    frases: List[str],
-    model,
-    similarity_threshold: float = 0.72
-) -> List[List[str]]:
+    frases: list[str], model, similarity_threshold: float = 0.72
+) -> list[list[str]]:
     """
     Agrupamento simples por conectividade via threshold.
     """
@@ -262,7 +254,7 @@ def cluster_phrases_embeddings(
     return grupos
 
 
-def choose_representative_phrase(cluster: List[str], all_scores_map: Dict[str, float]) -> str:
+def choose_representative_phrase(cluster: list[str], all_scores_map: dict[str, float]) -> str:
     """
     Pega a frase com maior score dentro do cluster.
     """
@@ -273,6 +265,7 @@ def choose_representative_phrase(cluster: List[str], all_scores_map: Dict[str, f
 # LIMITADOR AUTOMÁTICO DE TOKENS
 # =========================================================
 
+
 def ordenar_frases_por_encadeamento(frases: list[str], model) -> list[str]:
     if not frases:
         return []
@@ -280,11 +273,7 @@ def ordenar_frases_por_encadeamento(frases: list[str], model) -> list[str]:
     if len(frases) == 1:
         return frases
 
-    embeddings = model.encode(
-        frases,
-        convert_to_numpy=True,
-        normalize_embeddings=True
-    )
+    embeddings = model.encode(frases, convert_to_numpy=True, normalize_embeddings=True)
     sim_matrix = np.dot(embeddings, embeddings.T)
 
     # começa pela frase mais central
@@ -295,11 +284,7 @@ def ordenar_frases_por_encadeamento(frases: list[str], model) -> list[str]:
     ordem = [atual]
 
     while len(visitados) < len(frases):
-        candidatos = [
-            (j, sim_matrix[atual, j])
-            for j in range(len(frases))
-            if j not in visitados
-        ]
+        candidatos = [(j, sim_matrix[atual, j]) for j in range(len(frases)) if j not in visitados]
 
         proximo = max(candidatos, key=lambda x: x[1])[0]
         ordem.append(proximo)
@@ -308,10 +293,10 @@ def ordenar_frases_por_encadeamento(frases: list[str], model) -> list[str]:
 
     return [frases[i] for i in ordem]
 
+
 def truncate_group_by_token_budget(
-    items: List[Dict[str, Any]],
-    max_tokens: int
-) -> List[Dict[str, Any]]:
+    items: list[dict[str, Any]], max_tokens: int
+) -> list[dict[str, Any]]:
     """
     Mantém itens até bater o orçamento de tokens.
     Cada item deve ter campo 'estimated_tokens' e já estar ordenado.
@@ -329,11 +314,9 @@ def truncate_group_by_token_budget(
 
     return selected
 
+
 def construir_texto_narrativo(
-    frases: list[dict],
-    model,
-    min_frases: int = 5,
-    similarity_threshold: float = 0.7
+    frases: list[dict], model, min_frases: int = 5, similarity_threshold: float = 0.7
 ) -> str:
     if not frases:
         return ""
@@ -342,23 +325,17 @@ def construir_texto_narrativo(
     score_map = {f["texto"]: f["score_relevancia"] for f in frases}
 
     clusters = cluster_phrases_embeddings(
-        frases=textos,
-        model=model,
-        similarity_threshold=similarity_threshold
+        frases=textos, model=model, similarity_threshold=similarity_threshold
     )
 
-    clusters = sorted(
-        clusters,
-        key=lambda c: sum(score_map.get(f, 0) for f in c),
-        reverse=True
-    )
+    clusters = sorted(clusters, key=lambda c: sum(score_map.get(f, 0) for f in c), reverse=True)
     melhor_cluster = clusters[0]
 
     if len(melhor_cluster) < min_frases:
         restantes = sorted(
             [f for f in textos if f not in melhor_cluster],
             key=lambda x: score_map.get(x, 0),
-            reverse=True
+            reverse=True,
         )
         for f in restantes:
             melhor_cluster.append(f)
@@ -381,7 +358,7 @@ def safe_float(value):
         if pd.isna(value):
             return None
         return float(value)
-    except:
+    except Exception:
         return None
 
 
@@ -390,47 +367,34 @@ def safe_str(value):
         return None
     return str(value).strip()
 
+
 # =========================================================
 # FUNÇÃO PRINCIPAL
 # =========================================================
 
-from collections import defaultdict
-from typing import List, Dict, Any
-import pandas as pd
-import numpy as np
-
-from collections import defaultdict
-from typing import List
-import pandas as pd
-import numpy as np
 
 model = get_sentence_transformer()
 
 
 def extrair_contexto_noticias(
     dataframe: pd.DataFrame,
-    list_search: List[str],
-
+    list_search: list[str],
     col_data: str = "data",
     col_titulo: str = "titulo",
     col_fonte: str = "fonte",
     col_conteudo: str = "conteudo",
     col_id: str = "Chave Análise de Mídia Hash",
-
     col_alcance: str | None = "alcance",
     col_tier: str | None = "tier",
     col_tipos_de_impactos: str | None = "tipos_de_impactos",
     col_sentimento: str | None = "sentimento",
     col_protagonismo: str | None = "protagonismo",
-
     col_empresa: str | None = "Empresa analisada",
     col_produto: str | None = "Produto analisado",
     col_jornalista: str | None = "Jornalista",
-
     col_url_noticia: str | None = "url da notícia",
     col_assuntos_especificos: str | None = "Assuntos específicos",
     col_midia: str | None = "Mídia",
-
     # novos parâmetros de performance
     model=model,
     max_frases_por_doc: int = 20,
@@ -454,22 +418,11 @@ def extrair_contexto_noticias(
 
     registros_por_data = defaultdict(list)
 
-    tier_weight_map = {
-        "Tier 1": 1.0,
-        "Tier 2": 0.7,
-        "Tier 3": 0.4,
-        "Outros": 0.1
-    }
+    tier_weight_map = {"Tier 1": 1.0, "Tier 2": 0.7, "Tier 3": 0.4, "Outros": 0.1}
 
-    tier_order = {
-        "Tier 1": 3,
-        "Tier 2": 2,
-        "Tier 3": 1,
-        "Outros": 0
-    }
+    tier_order = {"Tier 1": 3, "Tier 2": 2, "Tier 3": 1, "Outros": 0}
 
     for _, row in df.iterrows():
-
         data_raw = safe_get(row, col_data)
         try:
             data_val = pd.to_datetime(data_raw).strftime("%Y-%m-%d")
@@ -509,100 +462,81 @@ def extrair_contexto_noticias(
 
             final_score = base_score * (1 + 0.15 * alcance_score) * (1 + tier_weight)
 
-            frases.append({
-                "texto": frase,
-                "score_relevancia": round(final_score, 4)
-            })
+            frases.append({"texto": frase, "score_relevancia": round(final_score, 4)})
 
         if not frases:
             continue
 
         # reduz custo dos embeddings
-        frases = sorted(
-            frases,
-            key=lambda x: x["score_relevancia"],
-            reverse=True
-        )[:max_frases_por_doc]
+        frases = sorted(frases, key=lambda x: x["score_relevancia"], reverse=True)[
+            :max_frases_por_doc
+        ]
 
         frases_texto = [f["texto"] for f in frases]
         scores = [f["score_relevancia"] for f in frases]
 
         frases_filtradas_texto = remove_similares_embeddings(
-            frases_texto,
-            model=model,
-            scores=scores
+            frases_texto, model=model, scores=scores
         )
 
-        frases_filtradas = [
-            f for f in frases
-            if f["texto"] in frases_filtradas_texto
-        ]
+        frases_filtradas = [f for f in frases if f["texto"] in frases_filtradas_texto]
 
         if not frases_filtradas:
             continue
 
         frases_filtradas = sorted(
-            frases_filtradas,
-            key=lambda x: x["score_relevancia"],
-            reverse=True
+            frases_filtradas, key=lambda x: x["score_relevancia"], reverse=True
         )
 
         if usar_narrativa:
-            texto_narrativo = construir_texto_narrativo(
-                frases=frases_filtradas,
-                model=model
-            )
+            texto_narrativo = construir_texto_narrativo(frases=frases_filtradas, model=model)
         else:
-            texto_narrativo = " ".join(
-                f["texto"] for f in frases_filtradas[:max_frases_saida]
-            )
+            texto_narrativo = " ".join(f["texto"] for f in frases_filtradas[:max_frases_saida])
 
         doc_score = sum(f["score_relevancia"] for f in frases_filtradas)
 
-        registros_por_data[data_val].append({
-            "fonte": fonte_val,
-            "titulo": titulo_val,
-            "id publicacao": id_val,
-            "alcance": alcance_val,
-            "tier": tier_val,
-            "tipos_de_impactos": safe_get(row, col_tipos_de_impactos),
-            "sentimento": safe_str(safe_get(row, col_sentimento)),
-            "protagonismo": safe_str(safe_get(row, col_protagonismo)),
-            "empresa": safe_get(row, col_empresa),
-            "produto": safe_get(row, col_produto),
-            "jornalista": safe_get(row, col_jornalista),
-            "url da notícia": safe_str(safe_get(row, col_url_noticia)),
-            "Assuntos específicos": safe_get(row, col_assuntos_especificos),
-            "Mídia": safe_str(safe_get(row, col_midia)),
-            "texto": texto_narrativo,
-            "doc_score": doc_score
-        })
+        registros_por_data[data_val].append(
+            {
+                "fonte": fonte_val,
+                "titulo": titulo_val,
+                "id publicacao": id_val,
+                "alcance": alcance_val,
+                "tier": tier_val,
+                "tipos_de_impactos": safe_get(row, col_tipos_de_impactos),
+                "sentimento": safe_str(safe_get(row, col_sentimento)),
+                "protagonismo": safe_str(safe_get(row, col_protagonismo)),
+                "empresa": safe_get(row, col_empresa),
+                "produto": safe_get(row, col_produto),
+                "jornalista": safe_get(row, col_jornalista),
+                "url da notícia": safe_str(safe_get(row, col_url_noticia)),
+                "Assuntos específicos": safe_get(row, col_assuntos_especificos),
+                "Mídia": safe_str(safe_get(row, col_midia)),
+                "texto": texto_narrativo,
+                "doc_score": doc_score,
+            }
+        )
 
     resultado_final = {}
 
     for data_val, docs in registros_por_data.items():
-
         docs = sorted(
             docs,
             key=lambda x: (
                 x.get("alcance", 0) or 0,
                 tier_order.get(x.get("tier"), 0),
-                x.get("doc_score", 0)
+                x.get("doc_score", 0),
             ),
-            reverse=True
+            reverse=True,
         )
 
         resultado_final[data_val] = {
             "tema_dominante": docs[0]["texto"] if docs else None,
-            "documentos": docs
+            "documentos": docs,
         }
 
     return resultado_final
 
-from collections import defaultdict
-from typing import List
-import pandas as pd
-import numpy as np
+
 
 
 def deduplicar_frases_simples(frases, min_chars=30):
@@ -625,28 +559,23 @@ def deduplicar_frases_simples(frases, min_chars=30):
 
 def extrair_contexto_noticias_fast(
     dataframe: pd.DataFrame,
-    list_search: List[str],
-
+    list_search: list[str],
     col_data: str = "data",
     col_titulo: str = "titulo",
     col_fonte: str = "fonte",
     col_conteudo: str = "conteudo",
     col_id: str = "Chave Análise de Mídia Hash",
-
     col_alcance: str | None = "alcance",
     col_tier: str | None = "tier",
     col_tipos_de_impactos: str | None = "tipos_de_impactos",
     col_sentimento: str | None = "sentimento",
     col_protagonismo: str | None = "protagonismo",
-
     col_empresa: str | None = "Empresa analisada",
     col_produto: str | None = "Produto analisado",
     col_jornalista: str | None = "Jornalista",
-
     col_url_noticia: str | None = "url da notícia",
     col_assuntos_especificos: str | None = "Assuntos específicos",
     col_midia: str | None = "Mídia",
-
     max_frases_por_doc: int = 8,
     max_frases_saida: int = 4,
     min_chars_frase: int = 30,
@@ -667,32 +596,33 @@ def extrair_contexto_noticias_fast(
 
     registros_por_data = defaultdict(list)
 
-    tier_weight_map = {
-        "Tier 1": 1.0,
-        "Tier 2": 0.7,
-        "Tier 3": 0.4,
-        "Outros": 0.1
-    }
+    tier_weight_map = {"Tier 1": 1.0, "Tier 2": 0.7, "Tier 3": 0.4, "Outros": 0.1}
 
-    tier_order = {
-        "Tier 1": 3,
-        "Tier 2": 2,
-        "Tier 3": 1,
-        "Outros": 0
-    }
+    tier_order = {"Tier 1": 3, "Tier 2": 2, "Tier 3": 1, "Outros": 0}
 
     cols_necessarias = [
-        col_data, col_titulo, col_fonte, col_conteudo, col_id,
-        col_alcance, col_tier, col_tipos_de_impactos, col_sentimento,
-        col_protagonismo, col_empresa, col_produto, col_jornalista,
-        col_url_noticia, col_assuntos_especificos, col_midia
+        col_data,
+        col_titulo,
+        col_fonte,
+        col_conteudo,
+        col_id,
+        col_alcance,
+        col_tier,
+        col_tipos_de_impactos,
+        col_sentimento,
+        col_protagonismo,
+        col_empresa,
+        col_produto,
+        col_jornalista,
+        col_url_noticia,
+        col_assuntos_especificos,
+        col_midia,
     ]
 
     cols_necessarias = [c for c in cols_necessarias if c and c in df.columns]
     df = df[cols_necessarias]
 
     for row in df.to_dict("records"):
-
         data_val = row.get(col_data)
         titulo_val = safe_str(row.get(col_titulo))
         fonte_val = safe_str(row.get(col_fonte))
@@ -730,74 +660,64 @@ def extrair_contexto_noticias_fast(
 
             final_score = base_score * (1 + 0.15 * alcance_score) * (1 + tier_weight)
 
-            frases.append({
-                "texto": frase,
-                "score_relevancia": round(final_score, 4)
-            })
+            frases.append({"texto": frase, "score_relevancia": round(final_score, 4)})
 
         if not frases:
             continue
 
-        frases = sorted(
-            frases,
-            key=lambda x: x["score_relevancia"],
-            reverse=True
-        )[:max_frases_por_doc]
+        frases = sorted(frases, key=lambda x: x["score_relevancia"], reverse=True)[
+            :max_frases_por_doc
+        ]
 
-        frases_filtradas = deduplicar_frases_simples(
-            frases,
-            min_chars=min_chars_frase
-        )
+        frases_filtradas = deduplicar_frases_simples(frases, min_chars=min_chars_frase)
 
         if not frases_filtradas:
             continue
 
-        texto_narrativo = " ".join(
-            f["texto"] for f in frases_filtradas[:max_frases_saida]
-        )
+        texto_narrativo = " ".join(f["texto"] for f in frases_filtradas[:max_frases_saida])
 
         doc_score = sum(f["score_relevancia"] for f in frases_filtradas)
 
-        registros_por_data[data_val].append({
-            "fonte": fonte_val,
-            "titulo": titulo_val,
-            "id publicacao": id_val,
-            "alcance": alcance_val,
-            "tier": tier_val,
-            "tipos_de_impactos": row.get(col_tipos_de_impactos),
-            "sentimento": safe_str(row.get(col_sentimento)),
-            "protagonismo": safe_str(row.get(col_protagonismo)),
-            "empresa": row.get(col_empresa),
-            "produto": row.get(col_produto),
-            "jornalista": row.get(col_jornalista),
-            "url da notícia": safe_str(row.get(col_url_noticia)),
-            "Assuntos específicos": row.get(col_assuntos_especificos),
-            "Mídia": safe_str(row.get(col_midia)),
-            "texto": texto_narrativo,
-            "doc_score": doc_score
-        })
+        registros_por_data[data_val].append(
+            {
+                "fonte": fonte_val,
+                "titulo": titulo_val,
+                "id publicacao": id_val,
+                "alcance": alcance_val,
+                "tier": tier_val,
+                "tipos_de_impactos": row.get(col_tipos_de_impactos),
+                "sentimento": safe_str(row.get(col_sentimento)),
+                "protagonismo": safe_str(row.get(col_protagonismo)),
+                "empresa": row.get(col_empresa),
+                "produto": row.get(col_produto),
+                "jornalista": row.get(col_jornalista),
+                "url da notícia": safe_str(row.get(col_url_noticia)),
+                "Assuntos específicos": row.get(col_assuntos_especificos),
+                "Mídia": safe_str(row.get(col_midia)),
+                "texto": texto_narrativo,
+                "doc_score": doc_score,
+            }
+        )
 
     resultado_final = {}
 
     for data_val, docs in registros_por_data.items():
-
         docs = sorted(
             docs,
             key=lambda x: (
                 x.get("alcance", 0) or 0,
                 tier_order.get(x.get("tier"), 0),
-                x.get("doc_score", 0)
+                x.get("doc_score", 0),
             ),
-            reverse=True
+            reverse=True,
         )
 
         resultado_final[data_val] = {
             "tema_dominante": docs[0]["texto"] if docs else None,
-            "documentos": docs
+            "documentos": docs,
         }
 
     return resultado_final
-
 
 
 def filter_dataframe_by_date(
@@ -805,7 +725,7 @@ def filter_dataframe_by_date(
     date_col: str,
     start_date: str | None = None,
     end_date: str | None = None,
-    date_format: str | None = None
+    date_format: str | None = None,
 ) -> pd.DataFrame:
     """
     Filtra um DataFrame por intervalo de datas.
@@ -825,11 +745,7 @@ def filter_dataframe_by_date(
 
     # 🔥 Garantir que a coluna é datetime
     if not pd.api.types.is_datetime64_any_dtype(df[date_col]):
-        df[date_col] = pd.to_datetime(
-            df[date_col],
-            format=date_format,
-            errors="coerce"
-        )
+        df[date_col] = pd.to_datetime(df[date_col], format=date_format, errors="coerce")
 
     # 🚨 Dropa datas inválidas
     df = df.dropna(subset=[date_col])
@@ -845,29 +761,6 @@ def filter_dataframe_by_date(
 
     return df
 
-##########################
-##########################
-
-import re
-import unicodedata
-import hashlib
-import pandas as pd
-
-
-# =========================
-# NORMALIZAÇÃO
-# =========================
-def normalize_text(text):
-    """
-    Remove acentos e deixa em lowercase.
-    """
-    if pd.isna(text):
-        return ""
-    text = str(text)
-    text = unicodedata.normalize("NFKD", text)
-    text = text.encode("ASCII", "ignore").decode("utf-8")
-    return text.lower()
-
 
 # =========================
 # SPLIT DATAFRAME LIST
@@ -876,6 +769,7 @@ def splitdataframelist(df, target_column, separator="|"):
     """
     Divide os valores de uma coluna em múltiplas linhas.
     """
+
     def splitListToRows(row, row_accumulator, target_column, separator):
         valor = row[target_column]
 
@@ -903,10 +797,7 @@ def splitdataframelist(df, target_column, separator="|"):
 # HASH
 # =========================
 def generate_row_hash(
-    df: pd.DataFrame,
-    columns: list,
-    hash_col: str = "Chave Análise de Mídia Hash",
-    sep: str = "||"
+    df: pd.DataFrame, columns: list, hash_col: str = "Chave Análise de Mídia Hash", sep: str = "||"
 ) -> pd.DataFrame:
     """
     Gera um hash SHA-256 baseado em múltiplas colunas do DataFrame.
@@ -953,7 +844,7 @@ def find_dict_keys_in_text(texto, search_dict):
         encontrou = False
         for termo in termos_sorted:
             termo_norm = normalize_text(termo)
-            pattern = r'\b' + re.escape(termo_norm) + r'\b'
+            pattern = r"\b" + re.escape(termo_norm) + r"\b"
 
             if re.search(pattern, texto_norm):
                 encontrou = True
@@ -975,7 +866,7 @@ def identify_entities_in_dataframe(
     content_col: str = "conteudo",
     output_col: str = "entidade_encontrada",
     split_output: bool = True,
-    hash_columns: list = None
+    hash_columns: list = None,
 ) -> pd.DataFrame:
     """
     Procura termos nas colunas de título e conteúdo, retorna a KEY do dicionário,
@@ -1016,14 +907,11 @@ def identify_entities_in_dataframe(
 
     # concatena título + conteúdo para busca
     df["_texto_busca"] = (
-        df[title_col].fillna("").astype(str) + " " +
-        df[content_col].fillna("").astype(str)
+        df[title_col].fillna("").astype(str) + " " + df[content_col].fillna("").astype(str)
     )
 
     # identifica as keys encontradas
-    df[output_col] = df["_texto_busca"].apply(
-        lambda x: find_dict_keys_in_text(x, search_dict)
-    )
+    df[output_col] = df["_texto_busca"].apply(lambda x: find_dict_keys_in_text(x, search_dict))
 
     # remove coluna auxiliar
     df = df.drop(columns=["_texto_busca"])
@@ -1037,11 +925,6 @@ def identify_entities_in_dataframe(
         hash_columns = [title_col, content_col, output_col]
 
     # gera hash
-    df = generate_row_hash(
-        df=df,
-        columns=hash_columns,
-        hash_col='Chave Análise de Mídia Hash'
-
-    )
+    df = generate_row_hash(df=df, columns=hash_columns, hash_col="Chave Análise de Mídia Hash")
 
     return df

@@ -1,8 +1,10 @@
 import re
+
 from cortex_brand_analysis.nlp.models.text_treatment import emojis_unicodes
 
 PATTERN = emojis_unicodes.get_emojis_unicodes()
 EMOJI_PATTERN = re.compile(PATTERN)
+
 
 def remove_emojis_from_str(string):
     """Receives a string and remove emojis

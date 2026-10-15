@@ -213,10 +213,7 @@ def load_tool(group: str, tool_name: str) -> Any:
             return tool
 
     available = sorted(
-        {
-            getattr(tool, "name", getattr(tool, "__name__", "unknown"))
-            for tool in tools
-        }
+        {getattr(tool, "name", getattr(tool, "__name__", "unknown")) for tool in tools}
     )
     raise LegacyRuntimeUnavailable(
         f"tool '{tool_name}' was not loaded; available tools: {available}"

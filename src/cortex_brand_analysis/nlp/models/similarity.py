@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Dict, Any, List, Tuple
-from collections import defaultdict
+from typing import Any
 
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def _normalize_text(text: str) -> str:
@@ -33,7 +32,7 @@ def _normalize_text(text: str) -> str:
     return text
 
 
-def _choose_canonical_label(labels: List[str], sim_matrix: np.ndarray | None = None) -> str:
+def _choose_canonical_label(labels: list[str], sim_matrix: np.ndarray | None = None) -> str:
     """
     Escolhe o melhor rótulo canônico para um grupo de temas similares.
 
@@ -57,9 +56,8 @@ def _choose_canonical_label(labels: List[str], sim_matrix: np.ndarray | None = N
 
 
 def _connected_components_from_similarity(
-    similarity_matrix: np.ndarray,
-    threshold: float
-) -> List[List[int]]:
+    similarity_matrix: np.ndarray, threshold: float
+) -> list[list[int]]:
     """
     Cria grupos por componente conexa:
     se A~B e B~C, todos entram no mesmo grupo.
@@ -94,13 +92,13 @@ def _connected_components_from_similarity(
 
 
 def normalizar_temas_similares(
-    resultado: Dict[str, Dict[str, Any]],
+    resultado: dict[str, dict[str, Any]],
     campo_tema: str = "tema",
     similarity_threshold: float = 0.72,
     model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     prefer_embedding: bool = True,
-    atualizar_inplace: bool = False
-) -> Dict[str, Any]:
+    atualizar_inplace: bool = False,
+) -> dict[str, Any]:
     """
     Normaliza temas semanticamente similares dentro de um dicionário de clusters.
 
@@ -109,8 +107,12 @@ def normalizar_temas_similares(
     resultado : dict
         Ex:
         {
-            "C33695845": {"resumo": "...", "tema": "Liquidação do Banco Master", "macrotema": "..."},
-            "C27743667": {"resumo": "...", "tema": "Banco Master é liquidado", "macrotema": "..."},
+            "C33695845": {"resumo": "...", 
+            "tema": "Liquidação do Banco Master", 
+            "macrotema": "..."},
+            "C27743667": {"resumo": "...", 
+            "tema": "Banco Master é liquidado", 
+            "macrotema": "..."},
         }
 
     campo_tema : str
@@ -163,6 +165,7 @@ def normalizar_temas_similares(
     if prefer_embedding:
         try:
             from sentence_transformers import SentenceTransformer
+
             model = SentenceTransformer(model_name)
             emb = model.encode(temas_originais, normalize_embeddings=True)
             similarity_matrix = cosine_similarity(emb)
@@ -196,12 +199,14 @@ def normalizar_temas_similares(
         sub_sim = similarity_matrix[np.ix_(group, group)]
         canonical = _choose_canonical_label(labels_group, sub_sim)
 
-        grupos_saida.append({
-            "indices": group,
-            "cluster_ids": [cluster_ids[i] for i in group],
-            "temas_originais": labels_group,
-            "tema_canonico": canonical,
-        })
+        grupos_saida.append(
+            {
+                "indices": group,
+                "cluster_ids": [cluster_ids[i] for i in group],
+                "temas_originais": labels_group,
+                "tema_canonico": canonical,
+            }
+        )
 
         for i in group:
             mapa_tema_original_para_canonico[temas_originais[i]] = canonical
@@ -212,9 +217,7 @@ def normalizar_temas_similares(
     if atualizar_inplace:
         resultado_normalizado = resultado
     else:
-        resultado_normalizado = {
-            cid: dict(payload) for cid, payload in resultado.items()
-        }
+        resultado_normalizado = {cid: dict(payload) for cid, payload in resultado.items()}
 
     for cid in cluster_ids:
         tema_original = str(resultado_normalizado[cid].get(campo_tema, "") or "")

@@ -9,7 +9,6 @@ def find_proper_nouns_and_retag_sentences(doc_val):
     proper_nouns_by_sentence = defaultdict(list)
     N = 9
     for n in range(N, 0, -1):
-
         # Get list of tagged Ngrams
         ngrams_ref = {}
         for k, tagged_sent_tokens in tagged_sents_tokens.items():
@@ -29,16 +28,12 @@ def find_proper_nouns_and_retag_sentences(doc_val):
                     and (ngram[-1][0][0].isupper() or ngram[-1][0][0].isdigit())
                 ):
                     word_lst = [
-                        tagged_word[0]
-                        for tagged_word in ngram
-                        if tagged_word[1] not in ["ADP"]
+                        tagged_word[0] for tagged_word in ngram if tagged_word[1] not in ["ADP"]
                     ]
                     s_check = "".join(word[0] for word in word_lst)
                     pat = re.compile(r"[^a-zA-Z ]+")
                     if re.sub(pat, "", s_check).isupper():
-                        proper_noun = " ".join(
-                            [tagged_word[0] for tagged_word in ngram]
-                        )
+                        proper_noun = " ".join([tagged_word[0] for tagged_word in ngram])
                         current_pn[k].append(proper_noun)
                         proper_nouns_by_sentence[k].append(proper_noun)
 

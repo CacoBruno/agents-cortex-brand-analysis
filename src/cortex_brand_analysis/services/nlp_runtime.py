@@ -59,9 +59,9 @@ class NativeNlpRuntime:
         out["perc_negative"] = scores.map(lambda value: round(float(value[0]), 2))
         out["perc_positive"] = scores.map(lambda value: round(float(value[1]), 2))
         out["Sentimento"] = out["perc_positive"].map(
-            lambda value: "Positivo"
-            if value > 0.55
-            else ("Neutro" if value >= 0.45 else "Negativo")
+            lambda value: (
+                "Positivo" if value > 0.55 else ("Neutro" if value >= 0.45 else "Negativo")
+            )
         )
         return out, {"model": "CortexLexicon"}
 
@@ -88,11 +88,21 @@ class NativeNlpRuntime:
             axis=1,
         )
         mapping = {
-            "A": "Protagonismo", "B": "Protagonismo", "C": "Citação relevante",
-            "D": "Figurante", "E": "Protagonismo", "F": "Citação relevante",
-            "G": "Citação relevante", "H": "Figurante", "I": "Protagonismo",
-            "J": "Citação relevante", "K": "Citação relevante", "L": "Figurante",
-            "M": "Protagonismo", "Revisar": "Revisar", "-": "-",
+            "A": "Protagonismo",
+            "B": "Protagonismo",
+            "C": "Citação relevante",
+            "D": "Figurante",
+            "E": "Protagonismo",
+            "F": "Citação relevante",
+            "G": "Citação relevante",
+            "H": "Figurante",
+            "I": "Protagonismo",
+            "J": "Citação relevante",
+            "K": "Citação relevante",
+            "L": "Figurante",
+            "M": "Protagonismo",
+            "Revisar": "Revisar",
+            "-": "-",
         }
         out["Nível de Protagonismo final"] = out["protagonism_code"].map(
             lambda value: mapping.get(str(value), "Revisar")
@@ -134,9 +144,7 @@ class NativeNlpRuntime:
             content = _resolve_column(out, request.content_column, ["Conteúdo", "conteudo"])
             text_col = "_nlp_cluster_text"
             out[text_col] = (
-                out[title].fillna("").astype(str)
-                + " - "
-                + out[content].fillna("").astype(str)
+                out[title].fillna("").astype(str) + " - " + out[content].fillna("").astype(str)
             )
 
         dates = pd.to_datetime(out[date_col], errors="coerce")
@@ -178,8 +186,7 @@ class NativeNlpRuntime:
             for label, payload in request.macrothemes.items()
         }
         rules = {
-            label: ThemeRuleSchema(**payload)
-            for label, payload in request.theme_rules.items()
+            label: ThemeRuleSchema(**payload) for label, payload in request.theme_rules.items()
         }
         config = ThemeClassifierConfigSchema(**request.theme_config)
         classifier: Any = ThemeClassifierService(

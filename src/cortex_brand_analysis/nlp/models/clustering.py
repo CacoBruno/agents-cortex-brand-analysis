@@ -1,51 +1,48 @@
-import json
 import hashlib
-from datetime import timedelta
-from typing import List, Dict, Optional, Tuple
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import timedelta
 
 import numpy as np
 import pandas as pd
-import torch
-
+from sentence_transformers import SentenceTransformer
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
-from sentence_transformers import SentenceTransformer
+from cortex_brand_analysis.nlp.models.summarize import resumo_extrativo
 
 _model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
-from cortex_brand_analysis.nlp.models.summarize import resumo_extrativo
 
-def closest_cluster_ids(df, n=10) -> Dict:
-     
-    if 'titulo_da_publicacao' in df.columns:
-        title = 'titulo_da_publicacao'
+
+def closest_cluster_ids(df, n=10) -> dict:
+
+    if "titulo_da_publicacao" in df.columns:
+        title = "titulo_da_publicacao"
 
     if "Título" in df.columns:
         title = "Título"
 
-    if 'conteudo' in df.columns:
-        content = 'conteudo'
+    if "conteudo" in df.columns:
+        content = "conteudo"
 
     if "Conteúdo" in df.columns:
         content = "Conteúdo"
 
-
     top_texts_per_cluster = {}
 
-    df['text'] = df[title] + df[content] 
-    df['text'] = df['text'].apply(resumo_extrativo)
-    for cluster_id in df['cluster_id'].unique():
-            cluster_data = df[df['cluster_id'] == cluster_id]
-            # Excluir outliers, se desejar
-            # Ordenar por 'distance_to_centroid'
-            closest_texts = cluster_data.nsmallest(n, 'distance_to_centroid')
-            # Armazenar os textos ou outras informações relevantes
-            top_texts_per_cluster[cluster_id] = closest_texts['text'].tolist()
+    df["text"] = df[title] + df[content]
+    df["text"] = df["text"].apply(resumo_extrativo)
+    for cluster_id in df["cluster_id"].unique():
+        cluster_data = df[df["cluster_id"] == cluster_id]
+        # Excluir outliers, se desejar
+        # Ordenar por 'distance_to_centroid'
+        closest_texts = cluster_data.nsmallest(n, "distance_to_centroid")
+        # Armazenar os textos ou outras informações relevantes
+        top_texts_per_cluster[cluster_id] = closest_texts["text"].tolist()
 
     return top_texts_per_cluster
 
@@ -53,17 +50,20 @@ def closest_cluster_ids(df, n=10) -> Dict:
 def get_embedding(text: str):
     return _model.encode(text)
 
+
 # =========================================================
 # UTILITÁRIOS
 # =========================================================
+
 
 def means_dict_values(dict_):
     return sum(dict_.values()) / len(dict_) if dict_ else 0
 
 
 def _sanitize_nested(x):
-    import numpy as np
     from datetime import date, datetime
+
+    import numpy as np
 
     if isinstance(x, (np.integer,)):
         return int(x)
@@ -98,8 +98,10 @@ def _jsonify_nested(x):
     return _sanitize_nested(x)
 
 
-def _make_cluster_id(cluster_label: int, start_date=None, end_date=None, namespace: str = "clusters:v1") -> str:
-    key = f"{namespace}|{start_date}|{end_date}|{cluster_label}".encode("utf-8")
+def _make_cluster_id(
+    cluster_label: int, start_date=None, end_date=None, namespace: str = "clusters:v1"
+) -> str:
+    key = f"{namespace}|{start_date}|{end_date}|{cluster_label}".encode()
     h = hashlib.blake2b(key, digest_size=8)
     return f"clu_{h.hexdigest()}"
 
@@ -108,17 +110,20 @@ def _make_cluster_id(cluster_label: int, start_date=None, end_date=None, namespa
 # EMBEDDING CACHE
 # =========================================================
 
+
 def build_embedding_cache(
-    texts: List[str],
+    texts: list[str],
     get_embedding,
     max_workers: int = 8,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """
     Gera embeddings uma única vez para textos únicos.
     """
-    unique_texts = [t for t in pd.Series(texts, dtype="object").dropna().astype(str).str.strip().unique() if t]
+    unique_texts = [
+        t for t in pd.Series(texts, dtype="object").dropna().astype(str).str.strip().unique() if t
+    ]
 
-    cache: Dict[str, np.ndarray] = {}
+    cache: dict[str, np.ndarray] = {}
 
     def _embed_one(text):
         vec = get_embedding(text)
@@ -136,7 +141,9 @@ def build_embedding_cache(
     return cache
 
 
-def _get_embeddings_from_cache(texts: List[str], embedding_cache: Dict[str, np.ndarray]) -> np.ndarray:
+def _get_embeddings_from_cache(
+    texts: list[str], embedding_cache: dict[str, np.ndarray]
+) -> np.ndarray:
     vecs = []
     for t in texts:
         if t not in embedding_cache:
@@ -153,11 +160,12 @@ def _get_embeddings_from_cache(texts: List[str], embedding_cache: Dict[str, np.n
 # CLUSTERING
 # =========================================================
 
+
 def clustering_classification_fast_cached(
     df: pd.DataFrame,
     column_to_cluster: str,
     *,
-    embedding_cache: Dict[str, np.ndarray],
+    embedding_cache: dict[str, np.ndarray],
     max_k: int = 10,
     sample_for_k: int = 5000,
     pca_components: int = 50,
@@ -170,9 +178,8 @@ def clustering_classification_fast_cached(
 
     df = df.copy()
 
-    mask_valid = (
-        df[column_to_cluster].notna()
-        & df[column_to_cluster].astype(str).str.strip().ne("")
+    mask_valid = df[column_to_cluster].notna() & df[column_to_cluster].astype(str).str.strip().ne(
+        ""
     )
     df = df.loc[mask_valid].copy()
 
@@ -270,10 +277,7 @@ def clustering_classification_fast_cached(
     df["distance_to_centroid"] = np.round(distances, 3)
 
     bins = np.array([1.5, 2.5, 3.5], dtype=float)
-    choices = np.array(
-        ["very reliable", "reliable", "low reliable", "outlier"],
-        dtype=object
-    )
+    choices = np.array(["very reliable", "reliable", "low reliable", "outlier"], dtype=object)
     df["reliability"] = choices[
         np.digitize(df["distance_to_centroid"].to_numpy(), bins, right=False)
     ]
@@ -311,18 +315,18 @@ def clustering_classification_fast_cached(
         end_date = None
 
     cluster_to_id = {
-        cl: _make_cluster_id(int(cl), start_date, end_date)
-        for cl in df["cluster"].unique()
+        cl: _make_cluster_id(int(cl), start_date, end_date) for cl in df["cluster"].unique()
     }
     df["cluster_id"] = df["cluster"].map(cluster_to_id)
 
     cols_sort = [
-        c for c in [
+        c
+        for c in [
             "cluster",
             "cluster_id",
             "titulo_da_publicacao",
             "data_da_publicacao",
-            "distance_to_centroid"
+            "distance_to_centroid",
         ]
         if c in df.columns
     ]
@@ -336,6 +340,7 @@ def clustering_classification_fast_cached(
 # =========================================================
 # SIMILARIDADE
 # =========================================================
+
 
 def similaridade_cluster_fast(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
@@ -366,13 +371,16 @@ def similaridade_cluster_fast(dataframe: pd.DataFrame) -> pd.DataFrame:
         id_col = "ID Cortex"
 
     if id_col is None:
-        raise KeyError("Não encontrei coluna identificadora: 'Chave Análise de Mídia Hash', 'cortex_id' ou 'ID Cortex'.")
+        raise KeyError(
+                "Não encontrei coluna identificadora: "
+                "'Chave Análise de Mídia Hash', 'cortex_id' ou 'ID Cortex'."
+            )
 
     sort_cols = [alcance] if alcance else None
 
     matriz_total = {}
 
-    for cluster_value, cluster_df in df.groupby("cluster", sort=False):
+    for _cluster_value, cluster_df in df.groupby("cluster", sort=False):
         if sort_cols:
             cluster_df = cluster_df.sort_values(by=sort_cols, ascending=False)
 
@@ -381,11 +389,7 @@ def similaridade_cluster_fast(dataframe: pd.DataFrame) -> pd.DataFrame:
         matriz_sim = cosine_similarity(vectors)
 
         for i, id1 in enumerate(ids):
-            sims = {
-                ids[j]: float(matriz_sim[i, j])
-                for j in range(len(ids))
-                if i != j
-            }
+            sims = {ids[j]: float(matriz_sim[i, j]) for j in range(len(ids)) if i != j}
             matriz_total[id1] = dict(sorted(sims.items(), key=lambda item: item[1], reverse=True))
 
     df["similaridade_cluster"] = df[id_col].map(matriz_total)
@@ -398,7 +402,10 @@ def similaridade_cluster_fast(dataframe: pd.DataFrame) -> pd.DataFrame:
 # JANELAS
 # =========================================================
 
-def _build_windows(sd: pd.Timestamp, ed: pd.Timestamp, time_delta: int) -> List[Tuple[pd.Timestamp, pd.Timestamp]]:
+
+def _build_windows(
+    sd: pd.Timestamp, ed: pd.Timestamp, time_delta: int
+) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
     windows = []
     current_end = ed
     delta = timedelta(days=time_delta)
@@ -419,7 +426,7 @@ def _process_single_window(
     df_base: pd.DataFrame,
     date_col: str,
     column_to_cluster: str,
-    embedding_cache: Dict[str, np.ndarray],
+    embedding_cache: dict[str, np.ndarray],
     add_window_cols: bool,
     nested_as_json: bool,
 ) -> pd.DataFrame:
@@ -447,9 +454,9 @@ def _process_single_window(
     # sanitização
     for col in similar_df.columns:
         if similar_df[col].dtype == "object":
-            has_nested = similar_df[col].map(
-                lambda v: isinstance(v, (dict, list, tuple, set))
-            ).any()
+            has_nested = (
+                similar_df[col].map(lambda v: isinstance(v, (dict, list, tuple, set))).any()
+            )
 
             if has_nested and nested_as_json:
                 similar_df[col] = similar_df[col].map(_jsonify_nested)
@@ -457,12 +464,6 @@ def _process_single_window(
                 similar_df[col] = similar_df[col].map(_sanitize_nested)
 
     return similar_df
-
-
-import hashlib
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import pandas as pd
 
 
 def daily_cluster_similaridade_parallel(
@@ -597,9 +598,7 @@ def daily_cluster_similaridade_parallel(
 
                 if out is None or out.empty:
                     if verbose:
-                        print(
-                            f"Janela {window_start.date()} -> {window_end.date()} vazia."
-                        )
+                        print(f"Janela {window_start.date()} -> {window_end.date()} vazia.")
                     continue
 
                 out = out.copy()
@@ -639,8 +638,7 @@ def daily_cluster_similaridade_parallel(
                 erros.append((window_start, window_end, str(e)))
                 if verbose:
                     print(
-                        f"[AVISO] Falha na janela "
-                        f"{window_start.date()}->{window_end.date()}: {e}"
+                        f"[AVISO] Falha na janela {window_start.date()}->{window_end.date()}: {e}"
                     )
 
     if not resultados:
@@ -676,7 +674,10 @@ def daily_cluster_similaridade_parallel(
             print(f"Total de janelas processadas: {all_results['window_id'].nunique()}")
 
         if "cluster_id" in all_results.columns:
-            print(f"Clusters globais únicos (coluna 'cluster_id'): {all_results['cluster_id'].nunique()}")
+            print(
+                    "Clusters globais únicos (coluna 'cluster_id'): "
+                    f"{all_results['cluster_id'].nunique()}"
+                )
 
         if "cluster_hash" in all_results.columns:
             print(f"Hashes únicos (coluna 'cluster_hash'): {all_results['cluster_hash'].nunique()}")

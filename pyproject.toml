@@ -99,3 +99,6 @@ disallow_untyped_defs = true
 
 [tool.ruff.lint.per-file-ignores]
 "src/cortex_brand_analysis/api/*.py" = ["B008"]
+"src/cortex_brand_analysis/nlp/models/sentiment_analysis/pt_words.py" = ["B018"]
+"src/cortex_brand_analysis/nlp/models/sentiment_analysis/pt_expressions.py" = ["B018"]
+"src/cortex_brand_analysis/nlp/models/text_treatment/emojis_unicodes.py" = ["E501"]

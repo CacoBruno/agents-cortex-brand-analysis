@@ -22,7 +22,7 @@ def remove_items_from_dict(dictionary):
     """
 
     to_remove = set()
-    for key, value in dictionary.items():
+    for key, _value in dictionary.items():
         splited_keys = key.split()
         for k in splited_keys:
             if len(k) < 2:
@@ -39,9 +39,7 @@ def get_unigrams_count(doc_val, stopwords):
             t[0]
             for k, lst in doc_val["tagged_tokens"].items()
             for t in lst
-            if t[1] in ["NOUN", "VERB", "ADJ"]
-            and t[0] not in stopwords
-            and len(t[0]) > 1
+            if t[1] in ["NOUN", "VERB", "ADJ"] and t[0] not in stopwords and len(t[0]) > 1
         ]
     )
 
@@ -55,18 +53,15 @@ def get_ngrams_count(doc_val, biggest_compound_noun, ngram_length, stopwords):
     ngrams_ref = {}
     for k, tagged_sent_tokens in tagged_sents_tokens.items():
         if len(tagged_sent_tokens) >= ngram_length:
-            ngrams_ref[k] = [
-                grams for grams in ngrams(tagged_sent_tokens, ngram_length)
-            ]
+            ngrams_ref[k] = [grams for grams in ngrams(tagged_sent_tokens, ngram_length)]
 
     # Find Proper Nouns among Ngrams
     word_lst = []
     discard_tags = set(
-        ["."]
-        + ["PNOUN" + str(i) for i in range(ngram_length, biggest_compound_noun + 1)]
+        ["."] + ["PNOUN" + str(i) for i in range(ngram_length, biggest_compound_noun + 1)]
     )
-    for k, ngrams_list in ngrams_ref.items():
-        for idx, ngram in enumerate(ngrams_list):
+    for _k, ngrams_list in ngrams_ref.items():
+        for _idx, ngram in enumerate(ngrams_list):
             tags = [tagged_word[1] for tagged_word in ngram]
             if len(set(tags).intersection(discard_tags)) == 0:
                 pn_pieces = Counter(list(filter(lambda x: x[-1].isdigit(), tags)))
@@ -74,10 +69,7 @@ def get_ngrams_count(doc_val, biggest_compound_noun, ngram_length, stopwords):
                 if len(pn_pieces) > 0:
                     full_name = reduce(
                         (lambda x, y: x * y),
-                        [
-                            True if pn_pieces[i] == int(i[-1]) else False
-                            for i in pn_pieces
-                        ],
+                        [True if pn_pieces[i] == int(i[-1]) else False for i in pn_pieces],
                     )
                     if full_name:
                         word_piece_lst = [tagged_word[0] for tagged_word in ngram]
@@ -116,17 +108,15 @@ def get_most_important_ngrams(list_of_texts, ngrams_config):
         " ".join([i for i in k]): "_".join([i for i in k])
         for gram in grams
         for k, v in ngrams_counter[gram].items()
-        if (
-            v > D * ngrams_config[gram]["min_freq"]
-            and v < D * ngrams_config[gram]["max_freq"]
-        )
+        if (v > D * ngrams_config[gram]["min_freq"] and v < D * ngrams_config[gram]["max_freq"])
     }
 
     return ngrams_replace
 
 
 def get_most_important_collocations(list_of_texts, language, percentual=0.01):
-    """Search for the most important ngrams selected by collocations (expressions of multiple words which commonly co-occur)
+    """Search for the most important ngrams selected by collocations 
+    (expressions of multiple words which commonly co-occur)
 
     Args:
         dataframe (Pandas Dataframe)
@@ -177,9 +167,7 @@ def get_most_important_collocations(list_of_texts, language, percentual=0.01):
     finder = nltk.collocations.QuadgramCollocationFinder.from_words(sentences)
     quadrigrams_collocations = finder.nbest(quad_measures.likelihood_ratio, length)
 
-    aux_collocations = (
-        bigrams_collocations + trigrams_collocations + quadrigrams_collocations
-    )
+    aux_collocations = bigrams_collocations + trigrams_collocations + quadrigrams_collocations
 
     if language == "pt":
         collocation_list = [
@@ -215,7 +203,7 @@ def get_tfidf_ngrams(list_of_texts, ngrams_config):
     tfidf_unigrams = set()
 
     # Corpus
-    sentences = list_of_texts    
+    sentences = list_of_texts
     grams = ngrams_config.keys()
     grams = sorted(grams)
     gram_range_1 = int(grams[0])
@@ -257,17 +245,22 @@ def get_tfidf_ngrams(list_of_texts, ngrams_config):
 
 
 def get_PMI_bigrams(list_of_texts):
-
     """Function that calculate bigrams with PMI.
-        The pointwise mutual information (PMI) for a (word, context) pair in our corpus is
-        defined as the probability of their co-occurrence divided by the probabilities of them appearing individually
-        Expression: log(p(x,y) / (p(x) * p(y)))
 
-        Good collocation pairs have high PMI because the probability of co-occurrence is only slightly lower than the
-        probabilities of occurrence of each word. Conversely, a pair of words whose probabilities of
-        occurrence are considerably higher than their probability of co-occurrence gets a small PMI score.
+    The pointwise mutual information (PMI) for a (word, context) pair
+    in our corpus is defined as the probability of their co-occurrence
+    divided by the probabilities of them appearing individually.
 
-    Args:        
+    Expression: log(p(x,y) / (p(x) * p(y)))
+
+    Good collocation pairs have high PMI because the probability of
+    co-occurrence is only slightly lower than the probabilities of
+    occurrence of each word. Conversely, a pair of words whose
+    probabilities of occurrence are considerably higher than their
+    probability of co-occurrence gets a small PMI score.
+
+
+    Args:
         s (str)
 
     Returns:
@@ -316,7 +309,6 @@ def get_PMI_bigrams(list_of_texts):
 # Used in Protagonism Classification
 # ----------------------------------------------------------------------
 def find_ngrams_in_protagonism_text(text):
-
     """This function generates ngrams (defined in the global list NGRAMS_LIST)
         maintaining the proportion of ngrams in the text (does not calculate most_common
         that would change the position text according to the frequency)
@@ -329,15 +321,12 @@ def find_ngrams_in_protagonism_text(text):
     """
     text_tokens = word_tokenize(text)
     ngrams_terms = [dict(Counter(ngrams(text_tokens, x))) for x in NGRAMS_LIST]
-    ngrams_terms = [
-        " ".join(key) for inner_dictionary in ngrams_terms for key in inner_dictionary
-    ]
+    ngrams_terms = [" ".join(key) for inner_dictionary in ngrams_terms for key in inner_dictionary]
 
     return ngrams_terms
 
 
 def find_ngrams_counter(words):
-
     """
       This function generates ngrams (defined in the global list NGRAMS_LIST)
       making a count of the most frequent ngrams calculated with most_common
@@ -350,9 +339,7 @@ def find_ngrams_counter(words):
     """
 
     words = word_tokenize(words)
-    counter_words = [
-        dict(Counter(ngrams(words, x)).most_common(None)) for x in NGRAMS_LIST
-    ]
+    counter_words = [dict(Counter(ngrams(words, x)).most_common(None)) for x in NGRAMS_LIST]
     counter_words = [
         (key, freq)
         for inner_dictionary in counter_words
