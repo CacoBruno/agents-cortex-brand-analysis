@@ -24,6 +24,7 @@ dependencies = [
 cortex-brand-legacy-mcp = "cortex_brand_analysis.compat_entrypoints:run_legacy_mcp"
 cortex-brand-legacy-pria = "cortex_brand_analysis.compat_entrypoints:run_legacy_pria"
 cortex-brand-mcp = "cortex_brand_analysis.mcp.server:main"
+cortex-brand-pria = "cortex_brand_analysis.agents.cli:main"
 
 [project.optional-dependencies]
 ai = [
