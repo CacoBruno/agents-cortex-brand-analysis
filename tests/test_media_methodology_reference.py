@@ -27,7 +27,7 @@ def test_topic_frequency_weighting_differs_from_reach_contribution():
     topic_frequency = [1, 2]
     legacy_topic_total = sum(
         nps * count / sum(topic_frequency)
-        for nps, count in zip(topic_nps, topic_frequency)
+        for nps, count in zip(topic_nps, topic_frequency, strict=True)
     )
     reach_nps = weighted_nps(100, 50, 0)
     assert legacy_topic_total == pytest.approx(-1 / 3)
