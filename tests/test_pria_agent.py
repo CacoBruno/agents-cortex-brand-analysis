@@ -85,3 +85,46 @@ def test_pria_executes_typed_tool_and_continues_response(monkeypatch):
     continuation = client.responses.calls[1]
     assert continuation["previous_response_id"] == "resp_1"
     assert continuation["input"][0]["type"] == "function_call_output"
+
+
+def test_large_export_is_compacted_before_model_output(monkeypatch):
+    rows = [
+        {
+            "Data": f"2026-10-{(index % 16) + 1:02d}",
+            "Mídia": "Internet",
+            "Fonte": "Veículo A" if index % 2 == 0 else "Veículo B",
+            "Tier": "Tier 1",
+            "Sentimento": "Positivo" if index % 3 == 0 else "Neutro",
+            "Alcance orgânico": 100 + index,
+            "Conteúdo": "x" * 10000,
+        }
+        for index in range(500)
+    ]
+
+    monkeypatch.setattr(
+        pria_module,
+        "export_media_analysis",
+        lambda request: {
+            "rows": len(rows),
+            "columns": list(rows[0].keys()),
+            "data": rows,
+        },
+    )
+
+    result = pria_module._dispatch_tool(
+        "media_analysis_export",
+        {
+            "platform_url": "cliente.cortex-intelligence.com",
+            "companies": ["Itaú"],
+            "start_date": "2026-10-01",
+            "end_date": "2026-10-16",
+        },
+    )
+
+    encoded = json.dumps(result, ensure_ascii=False)
+
+    assert result["rows"] == 500
+    assert "Sentimento" in result["top_values"]
+    assert result["numeric_summary"]["Alcance orgânico"]["sum"] > 0
+    assert "Conteúdo" not in result["sample"][0]
+    assert len(encoded) < 1_000_000
