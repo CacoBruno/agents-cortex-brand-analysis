@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from typing import Any
 
 from cortex_brand_analysis.config import Settings
@@ -37,7 +38,10 @@ nomes de empresas/produtos devem corresponder aos valores da plataforma.
 Use somente as tools tipadas disponíveis. Nunca invente dados retornados pela Cortex.
 Não peça nem execute Python, shell, filesystem ou chamadas de rede arbitrárias.
 Para cálculos, prefira analytics_run e communication_index_run.
-Para dados de origem, use publications_export ou media_analysis_export.
+Para dados de origem, use publications_export ou media_analysis_export. Essas tools
+retornam um perfil analítico calculado sobre a base completa, com distribuição das
+principais variáveis, alcance, período e uma amostra segura; não espere receber o texto
+integral de todas as matérias.
 Use nlp_run somente quando uma operação NLP for necessária.
 
 Ao responder, diferencie claramente evidência dos dados e interpretação analítica.
@@ -83,6 +87,111 @@ PRIA_TOOLS: list[dict[str, Any]] = [
 ]
 
 
+def _compact_export(result: dict[str, Any], sample_size: int = 8) -> dict[str, Any]:
+    """Convert a potentially huge Cortex export into a bounded analytical profile.
+
+    The full export is used to calculate the profile, but raw article content is never
+    sent back to the model. This keeps function_call_output safely below API limits.
+    """
+    rows = result.get("data", [])
+    if not isinstance(rows, list):
+        return result
+
+    categorical_candidates = [
+        "Mídia",
+        "Fonte",
+        "Tier",
+        "Sentimento",
+        "Nível de Protagonismo",
+        "Nível de Protagonismo final",
+        "Empresa analisada",
+        "Produto analisado",
+        "Macro assunto",
+        "Tópicos",
+        "Assunto específico",
+        "Ação",
+        "Tipo da ação",
+        "Temas",
+        "Origem da menção",
+        "Tipos de impactos",
+        "Status classificação",
+    ]
+    numeric_candidates = ["Alcance orgânico", "Alcance total"]
+    date_candidates = ["Data", "data_da_publicacao"]
+
+    profile: dict[str, Any] = {
+        "rows": result.get("rows", len(rows)),
+        "columns": result.get("columns", []),
+        "top_values": {},
+        "numeric_summary": {},
+        "date_range": {},
+    }
+
+    for column in categorical_candidates:
+        values: list[str] = []
+        for row in rows:
+            value = row.get(column)
+            if value is None or value == "":
+                continue
+            if isinstance(value, list):
+                values.extend(str(item) for item in value if item not in (None, ""))
+            else:
+                values.append(str(value))
+        if values:
+            profile["top_values"][column] = [
+                {"value": value, "count": count}
+                for value, count in Counter(values).most_common(10)
+            ]
+
+    for column in numeric_candidates:
+        values: list[float] = []
+        for row in rows:
+            value = row.get(column)
+            try:
+                if value is not None:
+                    values.append(float(value))
+            except (TypeError, ValueError):
+                continue
+        if values:
+            profile["numeric_summary"][column] = {
+                "sum": round(sum(values), 2),
+                "mean": round(sum(values) / len(values), 2),
+                "min": round(min(values), 2),
+                "max": round(max(values), 2),
+                "non_null": len(values),
+            }
+
+    for column in date_candidates:
+        values = sorted(
+            str(row[column])
+            for row in rows
+            if row.get(column) not in (None, "")
+        )
+        if values:
+            profile["date_range"][column] = {
+                "min": values[0],
+                "max": values[-1],
+            }
+
+    excluded = {"Conteúdo", "conteudo", "text", "Texto"}
+    sample: list[dict[str, Any]] = []
+    for row in rows[:sample_size]:
+        sample.append(
+            {
+                key: value
+                for key, value in row.items()
+                if key not in excluded
+            }
+        )
+
+    profile["sample"] = sample
+    profile["note"] = (
+        "Perfil calculado deterministicamente sobre a exportação completa. "
+        "O conteúdo integral das matérias foi omitido do retorno ao modelo."
+    )
+    return profile
+
+
 def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     if name == "nlp_run":
         return run_nlp(NlpRequest.model_validate(arguments))
@@ -91,9 +200,11 @@ def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     if name == "communication_index_run":
         return run_communication_index(CommunicationIndexRequest.model_validate(arguments))
     if name == "publications_export":
-        return export_publications(PublicationExportRequest.model_validate(arguments))
+        result = export_publications(PublicationExportRequest.model_validate(arguments))
+        return _compact_export(result)
     if name == "media_analysis_export":
-        return export_media_analysis(MediaAnalysisExportRequest.model_validate(arguments))
+        result = export_media_analysis(MediaAnalysisExportRequest.model_validate(arguments))
+        return _compact_export(result)
     raise ValueError(f"unsupported PRIA tool: {name}")
 
 
