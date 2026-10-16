@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from cortex_brand_analysis.config import Settings
-
 from pydantic import BaseModel, Field
+
+from cortex_brand_analysis.config import Settings
 
 ModelRole = Literal["conversation", "planning", "interpretation", "evaluation"]
 ReasoningEffort = Literal["low", "medium", "high", "xhigh"]
