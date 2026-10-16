@@ -6,6 +6,7 @@ from typing import Any
 
 from cortex_brand_analysis.config import Settings
 from cortex_brand_analysis.domain.agent import PriaRequest, PriaResult
+from cortex_brand_analysis.domain.model_policy import ModelPolicy
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest
 from cortex_brand_analysis.domain.communication_indexes import CommunicationIndexRequest
 from cortex_brand_analysis.domain.errors import ConfigurationError, UpstreamError
@@ -251,6 +252,7 @@ class PriaAgent:
         if not settings.openai_api_key and client is None:
             raise ConfigurationError("OPENAI_API_KEY is required for PRIA")
         self.settings = settings
+        self.model_policy = ModelPolicy.from_settings(settings)
         self.client = client or self._build_client()
 
     def _build_client(self) -> Any:
@@ -264,7 +266,7 @@ class PriaAgent:
 
     def run(self, request: PriaRequest, max_tool_rounds: int = 6) -> PriaResult:
         kwargs: dict[str, Any] = {
-            "model": "gpt-6-luna",
+            "model": self.model_policy.for_role("conversation").model,
             "instructions": PRIA_INSTRUCTIONS,
             "tools": PRIA_TOOLS,
             "input": request.message,
@@ -301,7 +303,7 @@ class PriaAgent:
                     )
 
                 response = self.client.responses.create(
-                    model="gpt-6-luna",
+                    model=self.model_policy.for_role("conversation").model,
                     instructions=PRIA_INSTRUCTIONS,
                     tools=PRIA_TOOLS,
                     previous_response_id=response.id,
