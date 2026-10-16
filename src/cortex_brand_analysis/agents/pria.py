@@ -6,7 +6,6 @@ from typing import Any
 
 from cortex_brand_analysis.config import Settings
 from cortex_brand_analysis.domain.agent import PriaRequest, PriaResult
-from cortex_brand_analysis.domain.model_policy import ModelPolicy
 from cortex_brand_analysis.domain.analytics import AnalyticsRequest
 from cortex_brand_analysis.domain.communication_indexes import CommunicationIndexRequest
 from cortex_brand_analysis.domain.errors import ConfigurationError, UpstreamError
@@ -14,6 +13,7 @@ from cortex_brand_analysis.domain.exports import (
     MediaAnalysisExportRequest,
     PublicationExportRequest,
 )
+from cortex_brand_analysis.domain.model_policy import ModelPolicy
 from cortex_brand_analysis.domain.nlp import NlpRequest
 from cortex_brand_analysis.mcp.tools import (
     export_media_analysis,
