@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+from cortex_brand_analysis.config import Settings
+
 from pydantic import BaseModel, Field
 
 ModelRole = Literal["conversation", "planning", "interpretation", "evaluation"]
@@ -25,9 +27,9 @@ class ModelPolicy(BaseModel):
         return getattr(self, role)
 
     @classmethod
-    def from_settings(cls, settings: object) -> ModelPolicy:
-        base = str(getattr(settings, "openai_conversation_model"))
-        analytical = str(getattr(settings, "openai_analytical_model"))
+    def from_settings(cls, settings: Settings) -> ModelPolicy:
+        base = settings.openai_conversation_model
+        analytical = settings.openai_analytical_model
         return cls(
             conversation=ModelSpec(model=base),
             planning=ModelSpec(model=analytical, reasoning_effort="high"),
