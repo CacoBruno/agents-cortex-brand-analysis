@@ -219,7 +219,9 @@ class PriaAgent:
         try:
             from openai import OpenAI
         except ImportError as exc:
-            raise ConfigurationError("install the project with the 'ai' extra to enable PRIA") from exc
+            raise ConfigurationError(
+                "install the project with the 'ai' extra to enable PRIA"
+            ) from exc
         return OpenAI(api_key=self.settings.openai_api_key)
 
     def run(self, request: PriaRequest, max_tool_rounds: int = 6) -> PriaResult:
