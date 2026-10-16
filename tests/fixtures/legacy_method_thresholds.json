@@ -1,0 +1,116 @@
+{
+  "source": "legacy/cortex_brand_ai_tools/services/coverage_pattern/pattern_and_statistic.py",
+  "status": "documented_baseline_not_certified",
+  "cases": {
+    "nps": [
+      [
+        -80,
+        "crise"
+      ],
+      [
+        -79.9,
+        "atenção"
+      ],
+      [
+        0,
+        "regular"
+      ],
+      [
+        35,
+        "bom"
+      ],
+      [
+        50,
+        "ótimo"
+      ],
+      [
+        80,
+        "excelente"
+      ]
+    ],
+    "historical_z": [
+      [
+        -2,
+        "muito_abaixo_media_historica"
+      ],
+      [
+        -1,
+        "abaixo_media_historica"
+      ],
+      [
+        0,
+        "dentro_padrao_historico"
+      ],
+      [
+        1,
+        "acima_media_historica"
+      ],
+      [
+        2,
+        "muito_acima_media_historica"
+      ]
+    ],
+    "variation_pp": [
+      [
+        -5,
+        "piora_relevante"
+      ],
+      [
+        -1,
+        "piora_leve"
+      ],
+      [
+        0,
+        "estabilidade"
+      ],
+      [
+        1,
+        "melhora_leve"
+      ],
+      [
+        5,
+        "melhora_relevante"
+      ]
+    ],
+    "variation_pct": [
+      [
+        -20,
+        "queda_relevante"
+      ],
+      [
+        -5,
+        "leve_queda"
+      ],
+      [
+        0,
+        "estabilidade"
+      ],
+      [
+        5,
+        "leve_alta"
+      ],
+      [
+        20,
+        "alta_relevante"
+      ]
+    ],
+    "stability": [
+      [
+        15,
+        "indicador_muito_estavel"
+      ],
+      [
+        30,
+        "indicador_estavel"
+      ],
+      [
+        60,
+        "indicador_volatil"
+      ],
+      [
+        61,
+        "indicador_muito_volatil"
+      ]
+    ]
+  }
+}
